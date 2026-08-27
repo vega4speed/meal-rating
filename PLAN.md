@@ -41,7 +41,7 @@ you actually want; menus and prioritization are what make it *good*.
 | Frontend | React + Vite + Tailwind CSS | Free |
 | Hosting | GitHub Pages (deployed via GitHub Actions) | Free |
 | Auth | Supabase — email OTP (6-digit code) | Free tier |
-| Database | Supabase Postgres | Free tier |
+| Database | Supabase Postgres — a **`meals` schema inside the existing `oil-tracker` project**, not a project of its own (see below) | Free tier |
 | Server logic | Postgres functions (RPC), **no Edge Functions in v1** | Free tier |
 | Real-time (optional) | Supabase Realtime | Free tier |
 
@@ -55,6 +55,94 @@ never see. Here, nothing is secret from the people allowed to read it — RLS al
 sufficient. The two places that need elevated privilege (accepting an invite, joining
 by code) are a few lines of `SECURITY DEFINER` SQL, not a deployed function. Fewer
 moving parts, no deploy step, no cold starts.
+
+---
+
+## Where the Database Lives
+
+**This app does not get its own Supabase project.** It lives as a `meals` schema
+inside the existing **`oil-tracker`** project. That's a deliberate decision with real
+consequences, so it's written down here rather than discovered later.
+
+### Why
+
+Supabase's free plan allows **two active projects, counted per account across every
+organization** where you're an Owner or Admin — creating a second free organization
+does *not* raise the ceiling, which is the workaround most search results will hand
+you. Both slots are already spent (`SHIASA React`, `oil-tracker`). The alternatives
+were a $25/mo Pro organization, or a non-Supabase backend that costs a rewrite
+(Firebase means porting the relational model to NoSQL; Neon means building the auth
+and API layers by hand). Neither buys enough to be worth it at household scale.
+
+### What that actually means
+
+| Aspect | Consequence |
+|---|---|
+| Tables | All app tables live in `meals`, never `public`. `oil-tracker` owns `public`. |
+| Auth | **Shared.** One `auth.users` for both apps — this cannot be partitioned. Someone with an oil-tracker account exists in this app's user table too. |
+| Data isolation | Fine. RLS means a stray user sees nothing here without a household membership. |
+| Email | Shared sender and shared rate limit. Login codes arrive branded as the host project. |
+| Quotas | Shared 500 MB database, 1 GB Storage, 5 GB egress. Meal text is negligible; meal photos would eat shared Storage. |
+| Pausing | Shared — and that's a *benefit*. One keep-alive job covers both apps instead of two. |
+| Redirect URLs | Not an issue, and this is why OTP matters more than it first appeared: magic links would need per-app redirect allowlists on a config that both apps share. Code entry needs none. |
+
+### Exposing the schema
+
+One-time setup, per the Supabase custom-schema docs:
+
+1. Add `meals` to **Exposed schemas** in the project's Data API settings.
+2. Run the grants:
+
+```sql
+create schema if not exists meals;
+
+grant usage on schema meals to anon, authenticated, service_role;
+grant all on all tables     in schema meals to anon, authenticated, service_role;
+grant all on all routines   in schema meals to anon, authenticated, service_role;
+grant all on all sequences  in schema meals to anon, authenticated, service_role;
+
+alter default privileges for role postgres in schema meals
+  grant all on tables    to anon, authenticated, service_role;
+alter default privileges for role postgres in schema meals
+  grant all on routines  to anon, authenticated, service_role;
+alter default privileges for role postgres in schema meals
+  grant all on sequences to anon, authenticated, service_role;
+```
+
+3. Point the client at it, once, at construction:
+
+```js
+export const supabase = createClient(URL, ANON_KEY, {
+  db: { schema: 'meals' },
+})
+```
+
+After that every `.from('meals')`, `.from('ratings')`, `.rpc(...)` resolves inside the
+schema with no per-query ceremony. (`supabase.schema('public')` is the escape hatch if
+something ever needs to reach out, which it shouldn't.)
+
+### Migration discipline — the part that matters
+
+Every migration this app runs now executes against a database holding another app's
+real, curated data (hundreds of products, a price history, physical inventory). The
+rules:
+
+- **Every DDL statement is schema-qualified.** `create table meals.ratings`, never
+  `create table ratings` with a hopeful `search_path`.
+- **Never `drop schema public`, never `alter default privileges` outside `meals`,
+  never touch a table you didn't create.**
+- Helper functions are schema-qualified too, and pin `set search_path = meals, public`
+  so a `SECURITY DEFINER` function can't be hijacked by a caller's search path.
+- Read every migration twice before running it. The isolation a separate project would
+  have bought is being replaced by this habit — that's the whole trade.
+
+### Getting out later
+
+If this ever needs its own project, the exit is cheaper than usual: a
+`pg_dump --schema=meals` and restore, plus re-creating a handful of users. **Because
+auth is OTP, there are no password hashes to migrate** — the only real work is
+preserving or remapping the `auth.users` UUIDs that ratings hang off. At three or four
+users, having everyone sign in again is a legitimate migration strategy.
 
 ---
 
@@ -98,6 +186,10 @@ values live in one place.
 ---
 
 ## Data Model
+
+Every table below lives in the **`meals` schema**, never `public` — see *Where the
+Database Lives*. Table names are written unqualified for readability; in migrations
+they are always `meals.<table>`.
 
 ### Core idea
 
@@ -278,7 +370,7 @@ Two numbers appear next to every meal: **yours** and **your household's**. Both 
 from views, not from client-side math over a pile of rows.
 
 ```sql
-create view v_variation_household_stats
+create view meals.v_variation_household_stats
   with (security_invoker = true) as
 select
   hm.household_id,
@@ -287,8 +379,8 @@ select
   count(*)                                              as rating_count,
   avg((r.would_reorder)::int) filter (
     where r.would_reorder is not null)                  as reorder_rate
-from ratings r
-join household_members hm on hm.user_id = r.user_id
+from meals.ratings r
+join meals.household_members hm on hm.user_id = r.user_id
 group by hm.household_id, r.variation_id;
 ```
 
@@ -314,17 +406,21 @@ belong to a household I'm in?*
 ### The helper that prevents recursion
 
 ```sql
-create function shares_household(target uuid)
+create function meals.shares_household(target uuid)
 returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = meals, public as $$
   select exists (
     select 1
-    from household_members a
-    join household_members b using (household_id)
+    from meals.household_members a
+    join meals.household_members b using (household_id)
     where a.user_id = auth.uid() and b.user_id = target
   );
 $$;
 ```
+
+The pinned `search_path` is not decoration — a `SECURITY DEFINER` function without one
+can be hijacked by whatever search path the caller happens to have set, and this
+database has another app's schema sitting next to ours.
 
 `SECURITY DEFINER` here isn't a shortcut — it's required. A policy on
 `household_members` that queries `household_members` recurses infinitely; the function
@@ -405,7 +501,10 @@ narrowing the rotation instead of improving it.
 ### Phase 0 — Skeleton & Deploy
 - [ ] Vite + React + Tailwind project, `base: '/meal-rating/'`
 - [ ] `HashRouter`, bottom-nav shell, PWA manifest + icons
-- [ ] Supabase project created; URL + anon key wired in via env
+- [ ] `meals` schema created in the `oil-tracker` project, added to Exposed schemas,
+      grants + default privileges applied (see *Where the Database Lives*)
+- [ ] Client constructed with `db: { schema: 'meals' }`; URL + anon key wired in via env
+- [ ] Confirm the shared project's keep-alive cron exists (or add one)
 - [ ] GitHub Actions workflow → GitHub Pages, publishing on push to `main`
 
 **Deliverable:** `vega4speed.github.io/meal-rating` loads a styled empty shell on a phone.
@@ -414,7 +513,8 @@ narrowing the rotation instead of improving it.
 
 ### Phase 1 — Auth & Profiles
 - [ ] Email OTP sign-in (`signInWithOtp` → `verifyOtp`), long session duration
-- [ ] `profiles` table + trigger creating a row on signup
+- [ ] `meals.profiles` table + signup trigger — **idempotent, and it must not assume a
+      new `auth.users` row belongs to this app** (oil-tracker signups fire it too)
 - [ ] First-run screen: pick a handle (uniqueness checked live) and display name
 - [ ] Session persistence + auth-guarded routes; sign out
 
@@ -501,18 +601,30 @@ scrolling.
 
 ## Two Free-Tier Gotchas
 
+Both are now **shared with `oil-tracker`**, which changes them in opposite directions.
+
 **1. Supabase pauses inactive free projects.** A free project with no activity for ~7
 days gets paused and has to be restored by hand from the dashboard. A household app
-that gets used hard on Sunday and ignored Monday–Saturday is squarely in the danger
-zone, and the failure mode is "app is broken" on the one day you need it. Fix: a cron
-GitHub Action hitting a trivial endpoint every couple of days — the same pattern as the
-6-hourly YNAB sync workflow already running in the personal repo.
+used hard on Sunday and ignored Monday–Saturday is squarely in the danger zone, and the
+failure mode is "app is broken" on the one day you need it. Sharing a project *helps*
+here: one keep-alive covers both apps, and the busier of the two keeps the other awake.
+Fix if it's not already in place: a cron GitHub Action hitting a trivial endpoint every
+couple of days — the same pattern as the 6-hourly YNAB sync workflow already running in
+the personal repo.
 
 **2. The built-in email sender is rate-limited** (a few messages per hour, shared
-infrastructure, and it's explicitly not for production). Fine for a handful of logins
-across a household, especially with long-lived sessions. If codes start arriving slowly
-or not at all, wire up custom SMTP (Resend's free tier is 3,000/month) — a settings
-change, not a code change.
+infrastructure, explicitly not for production). Sharing *hurts* here: both apps' login
+codes draw on the same budget, and the templates are per-project, so this app's codes
+arrive branded as the host project. Fine for a handful of logins across a household
+with long-lived sessions. If codes start arriving slowly, or the branding gets
+confusing once both apps have real users, wire up custom SMTP (Resend's free tier is
+3,000/month) — a settings change, not a code change, but one that lands on both apps at
+once.
+
+**A third, specific to sharing:** `auth.users` triggers fire for *every* signup in
+*either* app. If `oil-tracker` creates a profile row on signup and this app adds its
+own trigger, both run every time. Make this app's trigger idempotent and scoped so it
+never assumes a new user is a meal-rating user.
 
 ---
 
@@ -553,6 +665,11 @@ Deliberately deferred, not forgotten.
 - **Push notifications** — "this week's menu is up." Needs a service worker and Web
   Push; iOS only supports it for home-screen-installed PWAs.
 - **Export** — CSV of every rating, so the data outlives the app.
+- **Split into its own Supabase project** — worth revisiting if a free slot opens up
+  (a paused or retired project frees one), if the shared email rate limit or branding
+  starts causing real confusion, or if this app ever gets users beyond the household.
+  The exit path is in *Where the Database Lives*; it's cheap precisely because auth is
+  OTP.
 
 ---
 
