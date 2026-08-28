@@ -2,10 +2,13 @@ import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
 import { HouseholdProvider } from './lib/household.jsx'
 import BottomNav from './components/BottomNav.jsx'
-import Placeholder from './pages/Placeholder.jsx'
 import SignIn from './pages/SignIn.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Profile from './pages/Profile.jsx'
+import ThisWeek from './pages/menus/ThisWeek.jsx'
+import PastWeeks from './pages/menus/PastWeeks.jsx'
+import MenuView from './pages/menus/MenuView.jsx'
+import BuildMenu from './pages/menus/BuildMenu.jsx'
 import MealList from './pages/meals/MealList.jsx'
 import AddMeal from './pages/meals/AddMeal.jsx'
 import MealDetail from './pages/meals/MealDetail.jsx'
@@ -38,7 +41,10 @@ function Shell() {
         style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}
       >
         <Routes>
-          <Route path="/" element={<Placeholder title="This Week" />} />
+          <Route path="/" element={<ThisWeek />} />
+          <Route path="/menus" element={<PastWeeks />} />
+          <Route path="/menus/:menuId" element={<MenuView />} />
+          <Route path="/menus/:menuId/edit" element={<BuildMenu />} />
           <Route path="/meals" element={<MealList />} />
           <Route path="/meals/new" element={<AddMeal />} />
           <Route path="/meals/:id" element={<MealDetail />} />

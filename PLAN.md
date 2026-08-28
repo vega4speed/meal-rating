@@ -607,15 +607,27 @@ the household average.
 ---
 
 ### Phase 5 — Weekly Menus
-- [ ] `weekly_menus`, `weekly_menu_items`, `menu_selections` + RLS
-- [ ] Build a week: search the catalog, add items, publish
-- [ ] **Bulk paste import** — paste the provider's list, one meal per line; the app
-      fuzzy-matches each line against existing meals (`pg_trgm` similarity) and shows
-      a review screen: *matched* (tap to confirm), *new* (tap to create), *ambiguous*
-      (pick from candidates). Nothing is written until the review is confirmed.
-- [ ] Week View with ratings, badges, and sorting
-- [ ] Pick meals — selections visible to the whole household
-- [ ] Past weeks archive
+- [x] `weekly_menus`, `weekly_menu_items`, `menu_selections` + RLS (migration
+      `meals_weekly_menus`)
+- [x] Build a week: search the catalog, add items, reorder, per-item variation, publish
+- [x] **Bulk paste import** — `match_menu_paste(text[])` RPC ranks each line against
+      the catalog with `pg_trgm` (`<->` + `similarity`); review screen defaults lines
+      ≥ 0.55 to *matched*, lower to *new*, and every line has a candidate dropdown /
+      create / skip. Nothing is written until "Add to menu".
+- [x] Week View with ratings, badges (`NEW` / `LOVED` / `SKIP` / `YOUR FAVORITE`;
+      `NOT IN 6 MONTHS` deferred to Phase 6 — needs order history), sorted by
+      household rating
+- [x] Pick meals — `menu_selections`, visible to the whole household
+- [x] Past weeks archive (`/menus`)
+
+Routing: `/` = This Week (current week's menu or a build CTA), `/menus` = archive,
+`/menus/:id` = read-only week view, `/menus/:id/edit` = builder. `week_of` is the
+Monday (checked `isodow = 1`); `ensure_weekly_menu()` upserts the draft.
+`add_menu_items()` picks each meal's earliest (`Standard`) variation — the builder's
+per-item dropdown changes it afterward; **the household orders XP, so revisit whether
+the default should be Extra Protein**. The two seeded Clean Eatz weeks are *not* yet
+real `weekly_menus` (no household existed at seed time) — once a household exists,
+paste the week list into the builder and everything matches.
 
 **Deliverable:** Sunday's menu gets entered in under two minutes and everyone picks
 from their own phone.
