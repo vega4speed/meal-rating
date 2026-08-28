@@ -37,7 +37,7 @@ export default function SignIn() {
         <p className="mt-1 text-sm text-slate-400">
           {stage === 'email'
             ? 'Sign in with a code sent to your email.'
-            : `Enter the 6-digit code sent to ${email}.`}
+            : `Enter the code sent to ${email}.`}
         </p>
       </div>
 
@@ -60,16 +60,18 @@ export default function SignIn() {
         </form>
       ) : (
         <form onSubmit={submitCode} className="flex flex-col gap-4">
-          <Field label="6-digit code" error={error}>
+          <Field label="Login code" error={error}>
             <Input
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={8}
               required
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, '').slice(0, 8))
+              }
+              placeholder="12345678"
             />
           </Field>
           <Button type="submit" disabled={busy || code.length < 6}>
