@@ -7,6 +7,7 @@ import { formatWeekOf } from '../../lib/week.js'
 import { Input } from '../../components/ui.jsx'
 import BackLink from '../../components/BackLink.jsx'
 import PasteImport from './PasteImport.jsx'
+import PdfImport from './PdfImport.jsx'
 
 export default function BuildMenu() {
   const { menuId } = useParams()
@@ -266,6 +267,8 @@ export default function BuildMenu() {
           </ul>
         ) : null}
       </section>
+
+      <PdfImport menuId={menuId} onDone={load} />
 
       <PasteImport
         menuId={menuId}

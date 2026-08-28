@@ -620,6 +620,17 @@ the household average.
 - [x] Pick meals — `menu_selections`, visible to the whole household
 - [x] Past weeks archive (`/menus`)
 
+**PDF import (added 2026-08-28).** The builder also takes a PDF of the Clean Eatz
+weekly macro matrix. `pdfjs-dist` runs entirely in the browser (worker bundled to
+our own origin, `getDocument({data})` so no fetch — fine on static hosting);
+`src/lib/menuPdf.js` reconstructs table rows from text-item positions and parses
+name + 2×2 variation macros per meal, stripping `PREMIUM:`/`SALAD:` to tags and
+"(per 1 …)" to a description, collapsing duplicate variation rows. Parsed names go
+through the same `match_menu_paste` review; confirmed *new* meals are created with
+all their variations + macros via `upsert_catalog_meal()` (SECURITY DEFINER), then
+`add_menu_items()` puts them on the week. `menuPdf.js` is dynamically imported so
+pdf.js (~100 KB gz + a 1.3 MB worker) only loads when someone opens the importer.
+
 Routing: `/` = This Week (current week's menu or a build CTA), `/menus` = archive,
 `/menus/:id` = read-only week view, `/menus/:id/edit` = builder. `week_of` is the
 Monday (checked `isodow = 1`); `ensure_weekly_menu()` upserts the draft.
@@ -703,10 +714,9 @@ never assumes a new user is a meal-rating user.
 4. **Kids / non-account members.** ~~Decide before Phase 4.~~ **Resolved 2026-08-27:
    everyone rates through their own account for now.** `ratings.user_id` is a plain FK
    to `profiles`. Revisit if a kid needs representing without a phone.
-5. **Getting the weekly menu in.** Bulk paste is the assumption. If Clean Eatz has a
-   stable public menu page, a scraper could pre-fill it — but a static GitHub Pages
-   site can't fetch a third-party page (CORS), so that would mean a scheduled Action
-   or an Edge Function, and it depends on their terms of service. Manual first.
+5. **Getting the weekly menu in.** ~~Bulk paste is the assumption.~~ Bulk paste
+   *and* client-side PDF parsing of the Clean Eatz macro matrix both shipped
+   (2026-08-28). A scraper is still off the table on static hosting. Good enough.
 6. **Does the meal catalog stay global?** Fine while this is one household. If it's
    ever shared more widely, a moderation story is needed for bad or duplicate entries.
 
