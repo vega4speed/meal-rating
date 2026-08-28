@@ -555,11 +555,18 @@ this is accepted rather than moved to a private schema.
 ---
 
 ### Phase 3 — Meal Catalog
-- [ ] `providers`, `meals`, `meal_variations` + `normalized_name` trigger
-- [ ] Add a meal (auto-creates a `Standard` variation)
-- [ ] Add a variation to an existing meal
-- [ ] Meal list with search + tag filter
-- [ ] Meal detail page
+- [x] `providers`, `meals`, `meal_variations` + `normalized_name` trigger
+- [x] Add a meal (`after insert` trigger auto-creates a `Standard` variation)
+- [x] Add a variation to an existing meal (inline on the detail page)
+- [x] Meal list with search (trgm-indexed `ilike` on `normalized_name`) + single tag filter
+- [x] Meal detail page (info, tags, variations)
+
+Migration `meals_catalog`. `pg_trgm` installed into `extensions`. Catalog is global:
+`select`/`insert` open to any `authenticated`; `meals`/`meal_variations` `update`
+gated to the meal's `created_by`. Dedupe key is `(provider_id, normalized_name)`
+unique; the client mirrors the normalize rule in `src/lib/catalog.js` for search.
+Seeded provider: `Clean Eats`. Tag set is a fixed list in `catalog.js` (freeform
+tags deferred). Meal `update`/edit UI and image upload are not built yet.
 
 **Deliverable:** The catalog holds real Clean Eats meals and doesn't accept obvious
 duplicates.

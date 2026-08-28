@@ -6,6 +6,9 @@ import Placeholder from './pages/Placeholder.jsx'
 import SignIn from './pages/SignIn.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Profile from './pages/Profile.jsx'
+import MealList from './pages/meals/MealList.jsx'
+import AddMeal from './pages/meals/AddMeal.jsx'
+import MealDetail from './pages/meals/MealDetail.jsx'
 import HouseholdHome from './pages/household/HouseholdHome.jsx'
 import CreateHousehold from './pages/household/CreateHousehold.jsx'
 import JoinByCode from './pages/household/JoinByCode.jsx'
@@ -36,7 +39,9 @@ function Shell() {
       >
         <Routes>
           <Route path="/" element={<Placeholder title="This Week" />} />
-          <Route path="/meals" element={<Placeholder title="Meals" />} />
+          <Route path="/meals" element={<MealList />} />
+          <Route path="/meals/new" element={<AddMeal />} />
+          <Route path="/meals/:id" element={<MealDetail />} />
           <Route path="/household" element={<HouseholdHome />} />
           <Route path="/household/create" element={<CreateHousehold />} />
           <Route path="/household/join" element={<JoinByCode />} />
