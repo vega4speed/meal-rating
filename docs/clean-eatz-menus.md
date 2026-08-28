@@ -34,6 +34,30 @@ Blueberry Waffle & Sausage Breakfast Sammiez, Chicken & Waffle Breakfast Sammiez
 Sausage Egg & Cheese Breakfast Sammiez, Dark Chocolate Peanut Butter Buckeyes
 (per-piece macros), Energy Bites (per-piece macros)
 
+## Freezer-label meals (migration `meals_seed_cleaneatz_freezer_new`)
+
+Six meals seen on real container labels, not on either weekly matrix. Seeded with an
+`Extra Protein` variation only (every container this household buys is XP); the
+auto-created `Standard` row is left without macros.
+
+Buffalo Chicken Dip Bowl · Teriyaki Chicken Bro Meal (premium) · Green Chili Chicken
+Mac · Buffalo Chicken Mac & Cheese · Braised Beef Pot Roast · Southern Chicken Dinner
+
+## Label vs matrix macro discrepancies (unresolved — source-of-truth TBD)
+
+Container labels sometimes disagree with the weekly matrix. Not yet reconciled:
+
+| Meal (Extra Protein) | Matrix | Container label |
+|---|---|---|
+| Thai Peanut Chicken Bowl | 411 / 7 / 43 / 44 | 411 / 7 / 43 / 44 — match |
+| Verde Chicken Rice Bowl | 410 / 10 / 46 / 34 | 410 / 10 / 46 / 34 — match |
+| Cowboy Shepherds Bowl | 443 / 15 / 36 / 41 | **456** / 15 / 36 / 41 |
+| Grilled Chicken Parmesan | 437 / 13 / 41 / 39 | **391 / 7 / 39 / 43** |
+
+(cal / fat / protein / carb). Clean Eatz revises recipes between weeks; the freezer
+items span Freeze-By dates 08/20 and 08/27. This is the "meals change over time"
+problem — see *Backlog → Rating history over time* in PLAN.md.
+
 ## Name normalization applied
 
 - `PREMIUM:` / `SALAD:` prefixes dropped; `premium` / `salad` become tags.
