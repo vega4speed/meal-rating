@@ -2,16 +2,23 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
+import { useHousehold } from '../../lib/household.jsx'
 import { Button, Field, Input } from '../../components/ui.jsx'
 import BackLink from '../../components/BackLink.jsx'
-import { macroLine } from '../../lib/catalog.js'
+import VariationRating from './VariationRating.jsx'
 
 export default function MealDetail() {
   const { id } = useParams()
   const { user } = useAuth()
+  const { activeId } = useHousehold()
+
   const [meal, setMeal] = useState(null)
   const [variations, setVariations] = useState([])
+  const [myRatings, setMyRatings] = useState({}) // variation_id -> row
+  const [hhStats, setHhStats] = useState({}) // variation_id -> row
+  const [breakdown, setBreakdown] = useState({}) // variation_id -> [rows]
   const [loading, setLoading] = useState(true)
+
   const [adding, setAdding] = useState(false)
   const [label, setLabel] = useState('')
   const [notes, setNotes] = useState('')
@@ -36,9 +43,45 @@ export default function MealDetail() {
         .order('created_at', { ascending: true }),
     ])
     setMeal(m.data ?? null)
-    setVariations(v.data ?? [])
+    const vars = v.data ?? []
+    setVariations(vars)
+
+    const varIds = vars.map((x) => x.id)
+    if (varIds.length) {
+      const [mine, stats, bd] = await Promise.all([
+        supabase
+          .from('ratings')
+          .select('variation_id, score, would_reorder, notes')
+          .eq('user_id', user.id)
+          .in('variation_id', varIds),
+        activeId
+          ? supabase
+              .from('v_variation_household_stats')
+              .select('variation_id, avg_score, rating_count, reorder_rate')
+              .eq('household_id', activeId)
+              .in('variation_id', varIds)
+          : Promise.resolve({ data: [] }),
+        supabase
+          .from('ratings')
+          .select(
+            'variation_id, user_id, score, would_reorder, notes, profiles(display_name)',
+          )
+          .in('variation_id', varIds),
+      ])
+      setMyRatings(
+        Object.fromEntries((mine.data ?? []).map((r) => [r.variation_id, r])),
+      )
+      setHhStats(
+        Object.fromEntries((stats.data ?? []).map((r) => [r.variation_id, r])),
+      )
+      const grouped = {}
+      for (const r of bd.data ?? []) {
+        ;(grouped[r.variation_id] ||= []).push(r)
+      }
+      setBreakdown(grouped)
+    }
     setLoading(false)
-  }, [id])
+  }, [id, user.id, activeId])
 
   useEffect(() => {
     load()
@@ -94,26 +137,26 @@ export default function MealDetail() {
         </div>
       ) : null}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">Variations</h2>
-        <ul className="flex flex-col divide-y divide-slate-800">
-          {variations.map((v) => (
-            <li key={v.id} className="py-3">
-              <div className="text-slate-100">{v.label}</div>
-              {macroLine(v) ? (
-                <div className="text-xs text-slate-400">{macroLine(v)}</div>
-              ) : null}
-              {v.notes ? (
-                <div className="text-xs text-slate-500">{v.notes}</div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-slate-400">
+          Variations &amp; ratings
+        </h2>
+        {variations.map((v) => (
+          <VariationRating
+            key={v.id}
+            variation={v}
+            userId={user.id}
+            householdStat={hhStats[v.id] ?? null}
+            myRating={myRatings[v.id] ?? null}
+            breakdown={breakdown[v.id] ?? []}
+            onChanged={load}
+          />
+        ))}
 
         {adding ? (
           <form
             onSubmit={addVariation}
-            className="mt-2 flex flex-col gap-3 rounded-xl border border-slate-800 p-3"
+            className="flex flex-col gap-3 rounded-xl border border-slate-800 p-3"
           >
             <Field label="Label" hint="e.g. Spicy, with sweet potato">
               <Input
@@ -153,10 +196,6 @@ export default function MealDetail() {
           </button>
         )}
       </section>
-
-      <p className="text-xs text-slate-600">
-        Ratings arrive in the next phase.
-      </p>
     </div>
   )
 }

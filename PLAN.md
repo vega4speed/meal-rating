@@ -586,12 +586,20 @@ duplicates.
 ---
 
 ### Phase 4 — Ratings ← *the app becomes useful here*
-- [ ] `ratings` table + RLS
-- [ ] Rate flow: 1–5 stars, would-reorder toggle, optional note — two taps from open
-- [ ] Edit/delete your own rating
-- [ ] `v_variation_household_stats` + `v_meal_household_stats` (both `security_invoker`)
-- [ ] Meal detail shows your rating, household average, and per-member breakdown
-- [ ] Meal list sortable by household rating / your rating / never tried
+- [x] `ratings` table + RLS (migration `meals_ratings`); `updated_at` trigger
+- [x] Rate flow: 1–5 stars (locked, see Q2), would-reorder toggle, optional note —
+      inline on the meal detail page (fast This-Week path comes in Phase 5)
+- [x] Edit/delete your own rating (upsert on star tap; delete button)
+- [x] `v_variation_household_stats` + `v_meal_household_stats` (both `security_invoker`)
+- [x] Meal detail shows your rating, household stats, and per-member breakdown
+- [x] Meal list sortable by household rating / your rating / not tried
+
+`shares_household()` helper added here (deferred from Phase 2): `SECURITY DEFINER`,
+pinned search_path, EXECUTE revoked from PUBLIC/anon. `ratings` read = own rows OR
+`shares_household(user_id)`; write = own rows only. Both stat views are
+`security_invoker = true` so household RLS still applies through them. Rating scale is
+**1–5, no half-stars** (Q2). **Everyone rates through their own account** (Q4) —
+`ratings.user_id` is a plain FK to `profiles`; profiles-without-accounts are not built.
 
 **Deliverable:** Both people rate meals independently and see each other's scores and
 the household average.
@@ -668,16 +676,13 @@ never assumes a new user is a meal-rating user.
 ## Open Questions
 
 1. **App name.** "Meal Rating" is the repo name, not necessarily the product name.
-2. **Rating scale.** 1–5 stars assumed. Half-stars, or a 1–10 scale, would spread a
-   two-person household's scores out more — but every extra point of granularity is a
-   decision to make while standing at the counter. Worth one conversation before
-   Phase 4 locks it in.
+2. **Rating scale.** ~~1–5 stars assumed.~~ **Resolved 2026-08-27: 1–5, no
+   half-stars.** `would_reorder` carries the finer signal.
 3. **Does a household rating weight everyone equally?** If one person eats a meal
    twice as often, should their opinion count more? Assumed no.
-4. **Kids / non-account members.** Does everyone in the household need their own login
-   and phone, or should there be "profiles without accounts" that a parent rates on
-   behalf of? Materially changes the `ratings.user_id` foreign key. Decide before
-   Phase 4.
+4. **Kids / non-account members.** ~~Decide before Phase 4.~~ **Resolved 2026-08-27:
+   everyone rates through their own account for now.** `ratings.user_id` is a plain FK
+   to `profiles`. Revisit if a kid needs representing without a phone.
 5. **Getting the weekly menu in.** Bulk paste is the assumption. If Clean Eatz has a
    stable public menu page, a scraper could pre-fill it — but a static GitHub Pages
    site can't fetch a third-party page (CORS), so that would mean a scheduled Action
