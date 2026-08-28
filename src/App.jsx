@@ -1,10 +1,16 @@
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
+import { HouseholdProvider } from './lib/household.jsx'
 import BottomNav from './components/BottomNav.jsx'
 import Placeholder from './pages/Placeholder.jsx'
 import SignIn from './pages/SignIn.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Profile from './pages/Profile.jsx'
+import HouseholdHome from './pages/household/HouseholdHome.jsx'
+import CreateHousehold from './pages/household/CreateHousehold.jsx'
+import JoinByCode from './pages/household/JoinByCode.jsx'
+import FindPeople from './pages/household/FindPeople.jsx'
+import Invites from './pages/household/Invites.jsx'
 
 function Loading() {
   return (
@@ -31,7 +37,11 @@ function Shell() {
         <Routes>
           <Route path="/" element={<Placeholder title="This Week" />} />
           <Route path="/meals" element={<Placeholder title="Meals" />} />
-          <Route path="/household" element={<Placeholder title="Household" />} />
+          <Route path="/household" element={<HouseholdHome />} />
+          <Route path="/household/create" element={<CreateHousehold />} />
+          <Route path="/household/join" element={<JoinByCode />} />
+          <Route path="/household/find" element={<FindPeople />} />
+          <Route path="/household/invites" element={<Invites />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -62,7 +72,11 @@ function Gate() {
     )
   }
 
-  return <Shell />
+  return (
+    <HouseholdProvider>
+      <Shell />
+    </HouseholdProvider>
+  )
 }
 
 export default function App() {

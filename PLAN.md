@@ -531,13 +531,24 @@ week later still signed in.
 ---
 
 ### Phase 2 — Households
-- [ ] `households`, `household_members`, `household_invites` + RLS + helper functions
-- [ ] Create a household; auto-join creator as `owner`
-- [ ] Find People — search by handle, send invite
-- [ ] Invites screen — accept/decline via `accept_invite()`
-- [ ] Join by code via `join_household_by_code()`; owner can rotate the code
-- [ ] Member list; leave household; owner can remove a member
-- [ ] Active-household switcher (hidden when you're only in one)
+- [x] `households`, `household_members`, `household_invites` + RLS + helper functions
+- [x] Create a household; auto-join creator as `owner` (via `create_household()` RPC —
+      households have **no direct insert policy**; the RPC is the only path, so a
+      household can never exist without its owner membership)
+- [x] Find People — search by handle (`ilike 'term%'`), send invite (direct insert)
+- [x] Invites screen — accept via `accept_invite()`, decline/cancel via direct update
+- [x] Join by code via `join_household_by_code()`; owner can rotate via `rotate_join_code()`
+- [x] Member list; leave household; owner can remove a member (delete policy)
+- [x] Active-household switcher (localStorage `meal-rating.activeHousehold`, hidden at 1)
+
+Helpers `is_household_member` / `is_household_owner` are `SECURITY DEFINER` with pinned
+`search_path`. EXECUTE revoked from `PUBLIC`/`anon`; granted to `authenticated` (RLS
+policies call them in the caller's context). Join codes: 6 chars from an
+ambiguity-free alphabet, uniqueness-checked in a loop. **Not yet done:** rate-limiting
+`join_household_by_code` on failed attempts (PLAN'd; backlogged — low risk at
+household scale). Advisor still warns that the two boolean helpers are reachable as
+REST RPCs; they only probe membership for `auth.uid()` given a household UUID, so
+this is accepted rather than moved to a private schema.
 
 **Deliverable:** Two people on two phones end up in the same household by both routes.
 
