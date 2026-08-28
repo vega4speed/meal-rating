@@ -1,7 +1,7 @@
 # meal-rating
 
 Mobile-first web app for rating prepared meals from a meal-delivery service (Clean
-Eats), hosted on GitHub Pages with a Supabase backend. Public repo — the private
+Eatz), hosted on GitHub Pages with a Supabase backend. Public repo — the private
 context for this project lives in `vega4speed/claude-personal` under `MealRating/`.
 
 **Read `PLAN.md` before doing any work here.** It is the canonical spec: data model,

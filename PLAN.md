@@ -1,7 +1,7 @@
 # Meal Rating — Implementation Plan
 
 A mobile-first web app for tracking how a household rates prepared meals from a
-meal-delivery service (Clean Eats today, any provider in principle). Hosted free on
+meal-delivery service (Clean Eatz today, any provider in principle). Hosted free on
 GitHub Pages, backed by Supabase.
 
 ---
@@ -270,9 +270,9 @@ on here right now" without either person hunting for a handle. Same destination.
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid (PK) | |
-| name | text (unique) | `Clean Eats` |
+| name | text (unique) | `Clean Eatz` |
 
-Trivial table, but it keeps "Clean Eats" from being hardcoded and makes the meal-name
+Trivial table, but it keeps "Clean Eatz" from being hardcoded and makes the meal-name
 uniqueness constraint correct if a second service is ever added.
 
 #### `meals`
@@ -565,7 +565,7 @@ Migration `meals_catalog`. `pg_trgm` installed into `extensions`. Catalog is glo
 `select`/`insert` open to any `authenticated`; `meals`/`meal_variations` `update`
 gated to the meal's `created_by`. Dedupe key is `(provider_id, normalized_name)`
 unique; the client mirrors the normalize rule in `src/lib/catalog.js` for search.
-Seeded provider: `Clean Eats`. Tag set is a fixed list in `catalog.js` (freeform
+Seeded provider: `Clean Eatz`. Tag set is a fixed list in `catalog.js` (freeform
 tags deferred). Meal `update`/edit UI and image upload are not built yet.
 
 **Nutrition pulled out of the backlog** (real data arrived in the Clean Eatz macro
@@ -580,7 +580,7 @@ where the provider's macros match Standard. This revises the "one Standard varia
 users never think about it" assumption in *Data Model* above — for Clean Eatz mains,
 picking a variation is the norm, not the exception.
 
-**Deliverable:** The catalog holds real Clean Eats meals and doesn't accept obvious
+**Deliverable:** The catalog holds real Clean Eatz meals and doesn't accept obvious
 duplicates.
 
 ---
@@ -678,7 +678,7 @@ never assumes a new user is a meal-rating user.
    and phone, or should there be "profiles without accounts" that a parent rates on
    behalf of? Materially changes the `ratings.user_id` foreign key. Decide before
    Phase 4.
-5. **Getting the weekly menu in.** Bulk paste is the assumption. If Clean Eats has a
+5. **Getting the weekly menu in.** Bulk paste is the assumption. If Clean Eatz has a
    stable public menu page, a scraper could pre-fill it — but a static GitHub Pages
    site can't fetch a third-party page (CORS), so that would mean a scheduled Action
    or an Edge Function, and it depends on their terms of service. Manual first.
