@@ -58,6 +58,11 @@ Container labels sometimes disagree with the weekly matrix. Not yet reconciled:
 items span Freeze-By dates 08/20 and 08/27. This is the "meals change over time"
 problem — see *Backlog → Rating history over time* in PLAN.md.
 
+**Decision (2026-08-27): keep the matrix numbers.** The catalog holds one set of
+macros per variation and is allowed to drift from any given week's batch until
+rating-history / per-batch versioning is built. Don't overwrite catalog macros from
+container labels case-by-case.
+
 ## Name normalization applied
 
 - `PREMIUM:` / `SALAD:` prefixes dropped; `premium` / `salad` become tags.
