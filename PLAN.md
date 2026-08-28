@@ -512,11 +512,18 @@ narrowing the rotation instead of improving it.
 ---
 
 ### Phase 1 — Auth & Profiles
-- [ ] Email OTP sign-in (`signInWithOtp` → `verifyOtp`), long session duration
-- [ ] `meals.profiles` table + signup trigger — **idempotent, and it must not assume a
-      new `auth.users` row belongs to this app** (oil-tracker signups fire it too)
-- [ ] First-run screen: pick a handle (uniqueness checked live) and display name
-- [ ] Session persistence + auth-guarded routes; sign out
+- [x] Email OTP sign-in (`signInWithOtp` → `verifyOtp`), long session duration
+- [x] `meals.profiles` table + RLS. **No `auth.users` signup trigger** — because
+      `auth.users` is shared with oil-tracker, a trigger cannot reliably tell whose
+      signup it is. The profile row is instead created app-side during first-run
+      onboarding (`insert` gated by `id = auth.uid()`), and "no profile row yet" is
+      what the router uses to show onboarding. Idempotent by construction.
+- [x] First-run screen: pick a handle (uniqueness checked live) and display name
+- [x] Session persistence + auth-guarded routes; sign out
+
+Profiles RLS: `select` open to any `authenticated` (no email column, so safe — this
+is what makes handle search work in Phase 2); `insert`/`update` gated to own row.
+`citext` extension installed into `extensions` schema for case-insensitive handles.
 
 **Deliverable:** Sign in with an emailed code on a phone, close the app, come back a
 week later still signed in.
