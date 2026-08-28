@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { Button, Field, Input } from '../../components/ui.jsx'
 import BackLink from '../../components/BackLink.jsx'
+import { macroLine } from '../../lib/catalog.js'
 
 export default function MealDetail() {
   const { id } = useParams()
@@ -28,7 +29,9 @@ export default function MealDetail() {
         .maybeSingle(),
       supabase
         .from('meal_variations')
-        .select('id, label, notes, created_at')
+        .select(
+          'id, label, notes, created_at, calories, fat_g, protein_g, carbs_g',
+        )
         .eq('meal_id', id)
         .order('created_at', { ascending: true }),
     ])
@@ -97,6 +100,9 @@ export default function MealDetail() {
           {variations.map((v) => (
             <li key={v.id} className="py-3">
               <div className="text-slate-100">{v.label}</div>
+              {macroLine(v) ? (
+                <div className="text-xs text-slate-400">{macroLine(v)}</div>
+              ) : null}
               {v.notes ? (
                 <div className="text-xs text-slate-500">{v.notes}</div>
               ) : null}

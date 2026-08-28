@@ -568,6 +568,18 @@ unique; the client mirrors the normalize rule in `src/lib/catalog.js` for search
 Seeded provider: `Clean Eats`. Tag set is a fixed list in `catalog.js` (freeform
 tags deferred). Meal `update`/edit UI and image upload are not built yet.
 
+**Nutrition pulled out of the backlog** (real data arrived in the Clean Eatz macro
+matrices): `meal_variations` now carries `calories` / `fat_g` / `protein_g` /
+`carbs_g`, all nullable (migration `meals_variation_nutrition`). Catalog seeded with
+28 meals from the weeks of 2026-08-24 and 2026-08-31 (migration
+`meals_seed_cleaneatz_aug2026`); week membership recorded in
+`docs/clean-eatz-menus.md` for Phase 5. The provider's 2×2 variation matrix is
+modeled as up to four explicit `meal_variations` rows per main
+(`Standard` / `Low Carb` / `Extra Protein` / `Extra Protein + Low Carb`), collapsed
+where the provider's macros match Standard. This revises the "one Standard variation,
+users never think about it" assumption in *Data Model* above — for Clean Eatz mains,
+picking a variation is the norm, not the exception.
+
 **Deliverable:** The catalog holds real Clean Eats meals and doesn't accept obvious
 duplicates.
 

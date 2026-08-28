@@ -6,9 +6,16 @@ export const MEAL_TAGS = [
   'vegetarian',
   'breakfast',
   'pasta',
+  'pizza',
+  'salad',
   'spicy',
-  'low-carb',
+  'premium',
 ]
+
+export function macroLine(v) {
+  if (v.calories == null) return null
+  return `${v.calories} cal · ${v.protein_g}p / ${v.carbs_g}c / ${v.fat_g}f`
+}
 
 // Mirrors the DB trigger: lowercase, non-alphanumerics collapse to single spaces.
 export function normalizeMealName(name) {
