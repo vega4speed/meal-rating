@@ -12,6 +12,7 @@ export default function WeekMenu({ menuId }) {
   const [menu, setMenu] = useState(null)
   const [items, setItems] = useState([])
   const [stats, setStats] = useState({})
+  const [lastHad, setLastHad] = useState({})
   const [mine, setMine] = useState({})
   const [picks, setPicks] = useState({}) // item_id -> [{user_id, display_name}]
   const [loading, setLoading] = useState(true)
@@ -42,8 +43,11 @@ export default function WeekMenu({ menuId }) {
 
     const varIds = its.map((i) => i.variation_id)
     const itemIds = its.map((i) => i.id)
+    const mealIds = [
+      ...new Set(its.map((i) => i.meal_variations?.meal_id).filter(Boolean)),
+    ]
 
-    const [statRes, mineRes, pickRes] = await Promise.all([
+    const [statRes, mineRes, pickRes, lastRes] = await Promise.all([
       varIds.length
         ? supabase
             .from('v_variation_household_stats')
@@ -64,6 +68,13 @@ export default function WeekMenu({ menuId }) {
             .select('menu_item_id, user_id, profiles(display_name)')
             .in('menu_item_id', itemIds)
         : Promise.resolve({ data: [] }),
+      mealIds.length
+        ? supabase
+            .from('v_meal_household_last_had')
+            .select('meal_id, last_week')
+            .eq('household_id', m.household_id)
+            .in('meal_id', mealIds)
+        : Promise.resolve({ data: [] }),
     ])
 
     setStats(
@@ -73,6 +84,11 @@ export default function WeekMenu({ menuId }) {
     )
     setMine(
       Object.fromEntries((mineRes.data ?? []).map((r) => [r.variation_id, r.score])),
+    )
+    setLastHad(
+      Object.fromEntries(
+        (lastRes.data ?? []).map((r) => [r.meal_id, r.last_week]),
+      ),
     )
     const p = {}
     for (const row of pickRes.data ?? []) {
@@ -157,6 +173,7 @@ export default function WeekMenu({ menuId }) {
               householdAvg: st?.avg_score ?? null,
               ratingCount: st?.rating_count ?? 0,
               myScore,
+              lastHadWeek: lastHad[v?.meal_id] ?? null,
             })
             const pickers = picks[it.id] ?? []
             const iPicked = pickers.some((x) => x.user_id === user.id)

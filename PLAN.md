@@ -635,10 +635,18 @@ from their own phone.
 ---
 
 ### Phase 6 — Prioritization & Insights
-- [ ] Badges: `NEW`, `LOVED`, `SKIP`, `YOUR FAVORITE`, `NOT IN 6 MONTHS`
-- [ ] "Reorder list" — top household-rated meals not ordered recently
-- [ ] Agreement view — where your ratings and your spouse's diverge most
-- [ ] Per-person stats: meals rated, average score, most-ordered
+- [x] Badges: `NEW`, `LOVED`, `SKIP`, `YOUR FAVORITE`, `NOT IN 6 MONTHS`
+      (`NOT IN 6 MONTHS` = household ★ ≥ 4 and `last_week` ≥ 6 months ago)
+- [x] "Reorder list" — household ★ 4+ meals, stalest-first (Insights tab)
+- [x] Agreement view — "Where you disagree": meals you and another member rated,
+      biggest mean-score gap first (gap ≥ 1)
+- [x] Per-person stats: meals rated, average score, picks
+
+Migration `meals_last_had_view`: `v_meal_household_last_had` (`security_invoker`) =
+latest published `week_of` in which a household member actually *selected* that meal.
+New bottom-nav tab **Insights** (`/insights`). "Ordered" is defined as a
+`menu_selection` on a published menu — a meal on a menu that nobody picked doesn't
+count as had.
 
 **Deliverable:** Opening the app on menu day answers "what should we get?" without
 scrolling.

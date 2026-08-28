@@ -5,6 +5,7 @@ import BottomNav from './components/BottomNav.jsx'
 import SignIn from './pages/SignIn.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Profile from './pages/Profile.jsx'
+import Insights from './pages/Insights.jsx'
 import ThisWeek from './pages/menus/ThisWeek.jsx'
 import PastWeeks from './pages/menus/PastWeeks.jsx'
 import MenuView from './pages/menus/MenuView.jsx'
@@ -48,6 +49,7 @@ function Shell() {
           <Route path="/meals" element={<MealList />} />
           <Route path="/meals/new" element={<AddMeal />} />
           <Route path="/meals/:id" element={<MealDetail />} />
+          <Route path="/insights" element={<Insights />} />
           <Route path="/household" element={<HouseholdHome />} />
           <Route path="/household/create" element={<CreateHousehold />} />
           <Route path="/household/join" element={<JoinByCode />} />
