@@ -43,6 +43,15 @@ auto-created `Standard` row is left without macros.
 Buffalo Chicken Dip Bowl · Teriyaki Chicken Bro Meal (premium) · Green Chili Chicken
 Mac · Buffalo Chicken Mac & Cheese · Braised Beef Pot Roast · Southern Chicken Dinner
 
+## Freezer backfill (migration `backfill_cardens_freezer_picks`)
+
+The 10 meals from the freezer photos were seeded as a **published** `weekly_menu`
+for the Cardens household, week of **2026-08-17**, each item the `Extra Protein`
+variation and each **picked by @chip** (`menu_selections`). This lets the Meals-list
+"Picked · not rated" filter surface meals eaten but not yet scored. Meals list filter
+= meal in `v_meal_household_last_had` for the active household AND no rating by the
+current user.
+
 ## Label vs matrix macro discrepancies (unresolved — source-of-truth TBD)
 
 Container labels sometimes disagree with the weekly matrix. Not yet reconciled:
