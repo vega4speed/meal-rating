@@ -216,7 +216,8 @@ export default function WeekMenu({ menuId }) {
               lastHadWeek: lastHad[v?.meal_id] ?? null,
             })
             const pickers = picks[it.id] ?? []
-            const mine = pickers.find((x) => x.user_id === user.id) ?? null
+            const myItemPick =
+              pickers.find((x) => x.user_id === user.id) ?? null
             const others = pickers.filter((x) => x.user_id !== user.id)
             return (
               <Card as="li" key={it.id} className="flex flex-col gap-2.5 p-3.5">
@@ -237,7 +238,7 @@ export default function WeekMenu({ menuId }) {
                       </div>
                     ) : null}
                   </div>
-                  {mine ? (
+                  {myItemPick ? (
                     <div className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
                       <button
                         aria-label="Fewer"
@@ -248,11 +249,11 @@ export default function WeekMenu({ menuId }) {
                         −
                       </button>
                       <span className="min-w-[1.25rem] text-center text-sm font-bold">
-                        {mine.qty}
+                        {myItemPick.qty}
                       </span>
                       <button
                         aria-label="More"
-                        disabled={busyItem === it.id || mine.qty >= 20}
+                        disabled={busyItem === it.id || myItemPick.qty >= 20}
                         onClick={() => changeQty(it.id, 1)}
                         className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
                       >
@@ -302,7 +303,9 @@ export default function WeekMenu({ menuId }) {
                 {pickers.length ? (
                   <div className="text-xs text-slate-500">
                     {[
-                      mine ? `You${mine.qty > 1 ? ` ×${mine.qty}` : ''}` : null,
+                      myItemPick
+                        ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`
+                        : null,
                       ...others.map(
                         (x) =>
                           `${x.display_name}${x.qty > 1 ? ` ×${x.qty}` : ''}`,
