@@ -22,9 +22,11 @@ export default function MealList() {
   const [q, setQ] = useState('')
   const [tag, setTag] = useState(null)
   const [sort, setSort] = useState('name')
+  const [pickedNotRated, setPickedNotRated] = useState(false)
   const [meals, setMeals] = useState([])
   const [hh, setHh] = useState({})
   const [mine, setMine] = useState({})
+  const [picked, setPicked] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const debounce = useRef(null)
 
@@ -40,7 +42,7 @@ export default function MealList() {
       if (term) query = query.ilike('normalized_name', `%${term}%`)
       if (tag) query = query.contains('tags', [tag])
 
-      const [mealRes, hhRes, mineRes] = await Promise.all([
+      const [mealRes, hhRes, mineRes, pickedRes] = await Promise.all([
         query,
         activeId
           ? supabase
@@ -52,10 +54,17 @@ export default function MealList() {
           .from('ratings')
           .select('score, meal_variations(meal_id)')
           .eq('user_id', user.id),
+        activeId
+          ? supabase
+              .from('v_meal_household_last_had')
+              .select('meal_id')
+              .eq('household_id', activeId)
+          : Promise.resolve({ data: [] }),
       ])
 
       setMeals(mealRes.data ?? [])
       setHh(Object.fromEntries((hhRes.data ?? []).map((r) => [r.meal_id, r])))
+      setPicked(new Set((pickedRes.data ?? []).map((r) => r.meal_id)))
       const byMeal = {}
       for (const r of mineRes.data ?? []) {
         const mid = r.meal_variations?.meal_id
@@ -76,7 +85,9 @@ export default function MealList() {
   }, [q, tag, activeId, user.id])
 
   const sorted = useMemo(() => {
-    const rows = [...meals]
+    let rows = [...meals]
+    if (pickedNotRated)
+      rows = rows.filter((m) => picked.has(m.id) && mine[m.id] == null)
     if (sort === 'household')
       rows.sort(
         (a, b) => (hh[b.id]?.avg_score ?? -1) - (hh[a.id]?.avg_score ?? -1),
@@ -91,7 +102,7 @@ export default function MealList() {
       )
     else rows.sort((a, b) => a.name.localeCompare(b.name))
     return rows
-  }, [meals, sort, hh, mine])
+  }, [meals, sort, hh, mine, picked, pickedNotRated])
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,7 +119,7 @@ export default function MealList() {
         placeholder="Search meals"
       />
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
@@ -121,6 +132,19 @@ export default function MealList() {
             </option>
           ))}
         </Select>
+        <button
+          type="button"
+          aria-pressed={pickedNotRated}
+          onClick={() => setPickedNotRated((v) => !v)}
+          className={[
+            'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+            pickedNotRated
+              ? 'bg-emerald-500 text-slate-950'
+              : 'bg-slate-800 text-slate-300',
+          ].join(' ')}
+        >
+          Picked · not rated
+        </button>
       </div>
 
       <TagChips
