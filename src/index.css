@@ -1,7 +1,18 @@
 @import 'tailwindcss';
 
+@theme {
+  --color-bg: #0b1120;
+  --color-surface: #0f172a;
+  --color-surface-2: #1e293b;
+}
+
 :root {
   color-scheme: dark;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -12,9 +23,32 @@ body,
 
 body {
   margin: 0;
-  background-color: #0f172a;
+  background-color: #0b1120;
   color: #e2e8f0;
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Visible keyboard focus, invisible mouse focus. */
+:focus-visible {
+  outline: 2px solid #34d399;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: #34d39955;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

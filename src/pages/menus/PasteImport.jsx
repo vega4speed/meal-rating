@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
+import { useAuth } from '../../lib/auth.jsx'
 import { normalizeMealName } from '../../lib/catalog.js'
+import { Button, Textarea, ErrorText } from '../../components/ui.jsx'
 
 const MATCH_THRESHOLD = 0.55
 
-export default function PasteImport({ menuId, userId, onDone }) {
+export default function PasteImport({ menuId, onDone }) {
+  const { user } = useAuth()
+  const userId = user.id
   const [text, setText] = useState('')
   const [lines, setLines] = useState(null) // null | [{idx, line, candidates, action, mealId}]
   const [busy, setBusy] = useState(false)
@@ -115,25 +119,24 @@ export default function PasteImport({ menuId, userId, onDone }) {
   }
 
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium text-slate-400">Bulk paste</h2>
-
+    <div className="flex flex-col gap-3">
       {!lines ? (
         <>
-          <textarea
+          <Textarea
             rows={5}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Paste the week's meals, one per line"
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500"
           />
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-start"
             onClick={match}
             disabled={busy || !text.trim()}
-            className="self-start rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 disabled:opacity-40"
           >
             {busy ? 'Matching…' : 'Match against catalog'}
-          </button>
+          </Button>
           {done ? <p className="text-sm text-emerald-400">{done}</p> : null}
         </>
       ) : (
@@ -161,7 +164,7 @@ export default function PasteImport({ menuId, userId, onDone }) {
                         mealId: v.slice('match:'.length),
                       })
                   }}
-                  className="min-h-[38px] rounded-lg border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100"
+                  className="min-h-[40px] rounded-lg border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100"
                 >
                   {l.candidates.map((c) => (
                     <option key={c.mealId} value={`match:${c.mealId}`}>
@@ -174,24 +177,20 @@ export default function PasteImport({ menuId, userId, onDone }) {
               </li>
             ))}
           </ul>
-          <div className="flex gap-2">
-            <button
-              onClick={confirm}
-              disabled={busy}
-              className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40"
-            >
+          <div className="flex items-center gap-3">
+            <Button onClick={confirm} disabled={busy}>
               {busy ? 'Adding…' : 'Add to menu'}
-            </button>
+            </Button>
             <button
               onClick={() => setLines(null)}
-              className="px-3 text-sm font-medium text-slate-400"
+              className="text-sm font-medium text-slate-400"
             >
               Cancel
             </button>
           </div>
         </>
       )}
-      {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-    </section>
+      <ErrorText>{error}</ErrorText>
+    </div>
   )
 }

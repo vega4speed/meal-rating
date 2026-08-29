@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js'
 import { useHousehold } from '../../lib/household.jsx'
 import { mondayOf, formatWeekOf } from '../../lib/week.js'
 import BackLink from '../../components/BackLink.jsx'
+import { Button, Card, Pill, Spinner } from '../../components/ui.jsx'
 
 export default function PastWeeks() {
   const nav = useNavigate()
@@ -42,45 +43,34 @@ export default function PastWeeks() {
   }
 
   return (
-    <div className="flex flex-col gap-4 py-2">
-      <BackLink to="/" children="This week" />
+    <div className="flex flex-col gap-4">
+      <BackLink to="/">This week</BackLink>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-100">Menus</h1>
-        <button
-          onClick={buildThisWeek}
-          disabled={busy || !activeId}
-          className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40"
-        >
+        <Button size="sm" onClick={buildThisWeek} disabled={busy || !activeId}>
           Build this week
-        </button>
+        </Button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <Spinner />
       ) : menus.length === 0 ? (
-        <p className="text-sm text-slate-500">No menus yet.</p>
+        <p className="py-8 text-center text-sm text-slate-500">No menus yet.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-slate-800">
+        <Card className="divide-y divide-slate-800 p-0">
           {menus.map((m) => (
-            <li key={m.id}>
-              <Link
-                to={`/menus/${m.id}`}
-                className="flex items-center justify-between py-3"
-              >
-                <span className="text-slate-100">{formatWeekOf(m.week_of)}</span>
-                <span
-                  className={
-                    m.status === 'published'
-                      ? 'text-xs text-emerald-400'
-                      : 'text-xs text-amber-400'
-                  }
-                >
-                  {m.status}
-                </span>
-              </Link>
-            </li>
+            <Link
+              key={m.id}
+              to={`/menus/${m.id}`}
+              className="flex items-center justify-between gap-3 px-4 py-3"
+            >
+              <span className="text-slate-100">{formatWeekOf(m.week_of)}</span>
+              <Pill tone={m.status === 'published' ? 'emerald' : 'amber'}>
+                {m.status}
+              </Pill>
+            </Link>
           ))}
-        </ul>
+        </Card>
       )}
     </div>
   )

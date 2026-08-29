@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
 import { MEAL_TAGS, normalizeMealName } from '../../lib/catalog.js'
-import { Input } from '../../components/ui.jsx'
+import { Button, Input, Select, Spinner } from '../../components/ui.jsx'
 import TagChips from '../../components/TagChips.jsx'
 
 const SORTS = [
@@ -13,6 +13,8 @@ const SORTS = [
   { key: 'mine', label: 'Your rating' },
   { key: 'untried', label: 'Not tried' },
 ]
+
+const fmt1 = (x) => Number(x).toFixed(1)
 
 export default function MealList() {
   const { user } = useAuth()
@@ -53,9 +55,7 @@ export default function MealList() {
       ])
 
       setMeals(mealRes.data ?? [])
-      setHh(
-        Object.fromEntries((hhRes.data ?? []).map((r) => [r.meal_id, r])),
-      )
+      setHh(Object.fromEntries((hhRes.data ?? []).map((r) => [r.meal_id, r])))
       const byMeal = {}
       for (const r of mineRes.data ?? []) {
         const mid = r.meal_variations?.meal_id
@@ -64,9 +64,9 @@ export default function MealList() {
       }
       setMine(
         Object.fromEntries(
-          Object.entries(byMeal).map(([mid, scores]) => [
+          Object.entries(byMeal).map(([mid, s]) => [
             mid,
-            scores.reduce((a, b) => a + b, 0) / scores.length,
+            s.reduce((a, b) => a + b, 0) / s.length,
           ]),
         ),
       )
@@ -77,33 +77,28 @@ export default function MealList() {
 
   const sorted = useMemo(() => {
     const rows = [...meals]
-    if (sort === 'name') {
-      rows.sort((a, b) => a.name.localeCompare(b.name))
-    } else if (sort === 'household') {
+    if (sort === 'household')
       rows.sort(
         (a, b) => (hh[b.id]?.avg_score ?? -1) - (hh[a.id]?.avg_score ?? -1),
       )
-    } else if (sort === 'mine') {
+    else if (sort === 'mine')
       rows.sort((a, b) => (mine[b.id] ?? -1) - (mine[a.id] ?? -1))
-    } else if (sort === 'untried') {
+    else if (sort === 'untried')
       rows.sort(
         (a, b) =>
           (mine[a.id] != null ? 1 : 0) - (mine[b.id] != null ? 1 : 0) ||
           a.name.localeCompare(b.name),
       )
-    }
+    else rows.sort((a, b) => a.name.localeCompare(b.name))
     return rows
   }, [meals, sort, hh, mine])
 
   return (
-    <div className="flex flex-col gap-4 py-2">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-100">Meals</h1>
-        <Link
-          to="/meals/new"
-          className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950"
-        >
-          Add meal
+        <Link to="/meals/new">
+          <Button size="sm">Add meal</Button>
         </Link>
       </div>
 
@@ -113,19 +108,19 @@ export default function MealList() {
         placeholder="Search meals"
       />
 
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500">Sort</span>
-        <select
+      <div className="flex items-center gap-3">
+        <Select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="min-h-[36px] rounded-lg border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100"
+          className="w-auto"
+          aria-label="Sort meals"
         >
           {SORTS.map((s) => (
             <option key={s.key} value={s.key}>
               {s.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <TagChips
@@ -136,9 +131,9 @@ export default function MealList() {
       />
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <Spinner />
       ) : sorted.length === 0 ? (
-        <p className="text-sm text-slate-500">No meals match.</p>
+        <p className="py-8 text-center text-sm text-slate-500">No meals match.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-slate-800">
           {sorted.map((m) => {
@@ -150,27 +145,29 @@ export default function MealList() {
                   to={`/meals/${m.id}`}
                   className="flex items-center justify-between gap-3 py-3"
                 >
-                  <div>
-                    <div className="text-slate-100">{m.name}</div>
-                    <div className="mt-0.5 text-xs text-slate-500">
-                      {m.providers?.name}
-                      {m.tags?.length ? ` · ${m.tags.join(', ')}` : ''}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right text-xs">
-                    {h ? (
-                      <div className="text-amber-400">
-                        ★ {h.avg_score}
-                        <span className="text-slate-600"> ({h.rater_count})</span>
-                      </div>
-                    ) : (
-                      <div className="text-slate-600">unrated</div>
-                    )}
-                    {mineAvg != null ? (
-                      <div className="text-slate-500">
-                        you {mineAvg.toFixed(1)}
+                  <div className="min-w-0">
+                    <div className="truncate text-slate-100">{m.name}</div>
+                    {m.tags?.length ? (
+                      <div className="mt-0.5 truncate text-xs text-slate-500">
+                        {m.tags.join(' · ')}
                       </div>
                     ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3 text-xs">
+                    {mineAvg != null ? (
+                      <span className="text-slate-500">
+                        you {fmt1(mineAvg)}
+                      </span>
+                    ) : null}
+                    {h ? (
+                      <span className="rounded-lg bg-slate-800 px-2 py-1 font-medium text-amber-400">
+                        ★ {fmt1(h.avg_score)}
+                      </span>
+                    ) : (
+                      <span className="rounded-lg bg-slate-800/60 px-2 py-1 text-slate-500">
+                        —
+                      </span>
+                    )}
                   </div>
                 </Link>
               </li>

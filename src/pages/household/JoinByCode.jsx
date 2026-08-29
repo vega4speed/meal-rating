@@ -30,7 +30,7 @@ export default function JoinByCode() {
   }
 
   return (
-    <div className="flex flex-col gap-5 py-2">
+    <div className="flex flex-col gap-5">
       <BackLink to="/household" />
       <h1 className="text-xl font-semibold text-slate-100">Join by code</h1>
       <form onSubmit={submit} className="flex flex-col gap-4">
@@ -48,7 +48,7 @@ export default function JoinByCode() {
             placeholder="ABC123"
           />
         </Field>
-        <Button type="submit" disabled={busy || code.length < 6}>
+        <Button type="submit" full size="lg" disabled={busy || code.length < 6}>
           {busy ? 'Joining…' : 'Join'}
         </Button>
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}

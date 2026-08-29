@@ -1,33 +1,35 @@
 import { useAuth } from '../lib/auth.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, Card } from '../components/ui.jsx'
+import BackLink from '../components/BackLink.jsx'
+
+function Row({ label, value }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <dt className="text-sm text-slate-500">{label}</dt>
+      <dd className="text-sm text-slate-100">{value}</dd>
+    </div>
+  )
+}
 
 export default function Profile() {
   const { user, profile, signOut } = useAuth()
   return (
-    <div className="flex flex-col gap-6 py-4">
+    <div className="flex flex-col gap-5">
+      <BackLink to="/">This week</BackLink>
       <h1 className="text-xl font-semibold text-slate-100">Profile</h1>
-      <dl className="flex flex-col gap-3 text-sm">
-        <div>
-          <dt className="text-slate-500">Display name</dt>
-          <dd className="text-slate-100">{profile?.display_name}</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">Handle</dt>
-          <dd className="text-slate-100">@{profile?.handle}</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">Email</dt>
-          <dd className="text-slate-100">{user?.email}</dd>
-        </div>
-      </dl>
-      <Button
-        className="bg-slate-800 text-slate-100"
-        onClick={() => signOut()}
-      >
+
+      <Card as="dl" className="divide-y divide-slate-800 p-0">
+        <Row label="Display name" value={profile?.display_name} />
+        <Row label="Handle" value={`@${profile?.handle}`} />
+        <Row label="Email" value={user?.email} />
+      </Card>
+
+      <Button variant="secondary" full onClick={() => signOut()}>
         Sign out
       </Button>
+
       <p className="text-xs text-slate-600">
-        Editing your handle and display name comes in a later phase.
+        Editing your handle and display name comes later.
       </p>
     </div>
   )

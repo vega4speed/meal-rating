@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
 import BackLink from '../../components/BackLink.jsx'
+import { Button, SectionHeading } from '../../components/ui.jsx'
 
 export default function Invites() {
   const { user } = useAuth()
@@ -75,7 +76,7 @@ export default function Invites() {
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">Received</h2>
+        <SectionHeading>Received</SectionHeading>
         {received.length === 0 ? (
           <p className="text-sm text-slate-500">Nothing pending.</p>
         ) : (
@@ -89,20 +90,21 @@ export default function Invites() {
                   from {inv.inviter?.display_name} (@{inv.inviter?.handle})
                 </div>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    size="sm"
                     disabled={busyId === inv.id}
                     onClick={() => respond(inv.id, 'accept')}
-                    className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40"
                   >
                     Accept
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     disabled={busyId === inv.id}
                     onClick={() => respond(inv.id, 'decline')}
-                    className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 disabled:opacity-40"
                   >
                     Decline
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}
@@ -111,7 +113,7 @@ export default function Invites() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">Sent</h2>
+        <SectionHeading>Sent</SectionHeading>
         {outgoing.length === 0 ? (
           <p className="text-sm text-slate-500">None outstanding.</p>
         ) : (

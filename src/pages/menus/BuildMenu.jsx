@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
-import { useAuth } from '../../lib/auth.jsx'
 import { normalizeMealName } from '../../lib/catalog.js'
 import { formatWeekOf } from '../../lib/week.js'
-import { Input } from '../../components/ui.jsx'
+import {
+  Button,
+  Card,
+  Input,
+  Select,
+  Segmented,
+  SectionHeading,
+  Pill,
+  Spinner,
+  ErrorText,
+} from '../../components/ui.jsx'
 import BackLink from '../../components/BackLink.jsx'
 import PasteImport from './PasteImport.jsx'
 import PdfImport from './PdfImport.jsx'
 
 export default function BuildMenu() {
   const { menuId } = useParams()
-  const { user } = useAuth()
   const [menu, setMenu] = useState(null)
   const [items, setItems] = useState([])
   const [varsByMeal, setVarsByMeal] = useState({})
@@ -19,6 +27,7 @@ export default function BuildMenu() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
+  const [method, setMethod] = useState('search')
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
   const debounce = useRef(null)
@@ -26,7 +35,7 @@ export default function BuildMenu() {
   const load = useCallback(async () => {
     const menuRes = await supabase
       .from('weekly_menus')
-      .select('id, week_of, status, household_id, published_at')
+      .select('id, week_of, status, household_id')
       .eq('id', menuId)
       .maybeSingle()
     setMenu(menuRes.data ?? null)
@@ -79,6 +88,10 @@ export default function BuildMenu() {
     }, 250)
     return () => clearTimeout(debounce.current)
   }, [q])
+
+  const onMenuMealIds = new Set(
+    items.map((it) => it.meal_variations?.meal_id).filter(Boolean),
+  )
 
   async function addMeal(mealId) {
     setBusy(true)
@@ -140,142 +153,164 @@ export default function BuildMenu() {
     await load()
   }
 
-  if (loading) return <p className="py-8 text-sm text-slate-500">Loading…</p>
+  if (loading) return <Spinner />
   if (!menu) return <p className="py-8 text-sm text-slate-500">Menu not found.</p>
 
   return (
-    <div className="flex flex-col gap-5 py-2">
-      <BackLink to="/" children="This week" />
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-5">
+      <BackLink to="/">This week</BackLink>
+
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">
             {formatWeekOf(menu.week_of)}
           </h1>
-          <span className="text-xs text-slate-500">{menu.status}</span>
+          <div className="mt-1">
+            <Pill tone={menu.status === 'published' ? 'emerald' : 'amber'}>
+              {menu.status}
+            </Pill>
+          </div>
         </div>
         {menu.status === 'draft' ? (
-          <button
+          <Button
+            size="sm"
             onClick={() => setStatus('published')}
             disabled={busy || items.length === 0}
-            className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40"
           >
             Publish
-          </button>
+          </Button>
         ) : (
           <div className="flex gap-2">
-            <Link
-              to={`/menus/${menu.id}`}
-              className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200"
-            >
-              View
+            <Link to={`/menus/${menu.id}`}>
+              <Button size="sm" variant="secondary">
+                View
+              </Button>
             </Link>
-            <button
+            <Button
+              size="sm"
+              variant="secondary"
               onClick={() => setStatus('draft')}
               disabled={busy}
-              className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200"
             >
               Unpublish
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
-      {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+      <ErrorText>{error}</ErrorText>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">
-          On the menu ({items.length})
-        </h2>
+        <SectionHeading>On the menu · {items.length}</SectionHeading>
         {items.length === 0 ? (
           <p className="text-sm text-slate-500">Nothing added yet.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-slate-800">
+          <ul className="flex flex-col gap-2">
             {items.map((it, idx) => {
               const meal = it.meal_variations?.meals
               const vars = varsByMeal[it.meal_variations?.meal_id] ?? []
               return (
-                <li key={it.id} className="flex flex-col gap-2 py-3">
+                <Card as="li" key={it.id} className="flex flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-100">{meal?.name}</span>
-                    <div className="flex items-center gap-2 text-xs">
+                    <span className="min-w-0 truncate text-slate-100">
+                      {meal?.name}
+                    </span>
+                    <div className="flex shrink-0 items-center">
                       <button
                         onClick={() => move(idx, -1)}
                         disabled={idx === 0}
-                        className="text-slate-400 disabled:opacity-30"
+                        aria-label="Move up"
+                        className="flex h-9 w-9 items-center justify-center text-slate-400 disabled:opacity-25"
                       >
                         ↑
                       </button>
                       <button
                         onClick={() => move(idx, 1)}
                         disabled={idx === items.length - 1}
-                        className="text-slate-400 disabled:opacity-30"
+                        aria-label="Move down"
+                        className="flex h-9 w-9 items-center justify-center text-slate-400 disabled:opacity-25"
                       >
                         ↓
                       </button>
                       <button
                         onClick={() => removeItem(it.id)}
-                        className="font-medium text-rose-400"
+                        aria-label="Remove"
+                        className="flex h-9 w-9 items-center justify-center text-rose-400"
                       >
-                        Remove
+                        ✕
                       </button>
                     </div>
                   </div>
                   {vars.length > 1 ? (
-                    <select
+                    <Select
                       value={it.variation_id}
                       onChange={(e) => changeVariation(it.id, e.target.value)}
-                      className="min-h-[36px] rounded-lg border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100"
                     >
                       {vars.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : null}
-                </li>
+                </Card>
               )
             })}
           </ul>
         )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">Add from catalog</h2>
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search meals"
+      <section className="flex flex-col gap-3">
+        <SectionHeading>Add meals</SectionHeading>
+        <Segmented
+          value={method}
+          onChange={setMethod}
+          options={[
+            { value: 'search', label: 'Search' },
+            { value: 'paste', label: 'Paste' },
+            { value: 'pdf', label: 'PDF' },
+          ]}
         />
-        {results.length ? (
-          <ul className="flex flex-col divide-y divide-slate-800">
-            {results.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between py-2"
-              >
-                <span className="text-sm text-slate-200">{r.name}</span>
-                <button
-                  onClick={() => addMeal(r.id)}
-                  disabled={busy}
-                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-slate-950 disabled:opacity-40"
-                >
-                  Add
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+
+        {method === 'search' ? (
+          <div className="flex flex-col gap-2">
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search the catalog"
+            />
+            {results.length ? (
+              <ul className="flex flex-col divide-y divide-slate-800">
+                {results.map((r) => {
+                  const on = onMenuMealIds.has(r.id)
+                  return (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <span className="text-sm text-slate-200">{r.name}</span>
+                      <Button
+                        size="sm"
+                        variant={on ? 'secondary' : 'primary'}
+                        onClick={() => addMeal(r.id)}
+                        disabled={busy || on}
+                      >
+                        {on ? 'Added' : 'Add'}
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : q.trim() ? (
+              <p className="text-sm text-slate-500">No matches.</p>
+            ) : null}
+          </div>
+        ) : method === 'paste' ? (
+          <PasteImport menuId={menuId} onDone={load} />
+        ) : (
+          <PdfImport menuId={menuId} onDone={load} />
+        )}
       </section>
-
-      <PdfImport menuId={menuId} onDone={load} />
-
-      <PasteImport
-        menuId={menuId}
-        householdId={menu.household_id}
-        userId={user.id}
-        onDone={load}
-      />
     </div>
   )
 }

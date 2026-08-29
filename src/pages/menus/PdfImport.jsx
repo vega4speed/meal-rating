@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
+import { Button, ErrorText } from '../../components/ui.jsx'
 
 const MATCH_THRESHOLD = 0.55
 
@@ -101,12 +102,10 @@ export default function PdfImport({ menuId, onDone }) {
   }
 
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium text-slate-400">Import from PDF</h2>
-
+    <div className="flex flex-col gap-3">
       {!rows ? (
         <>
-          <label className="self-start rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200">
+          <label className="inline-flex min-h-[44px] cursor-pointer items-center justify-center self-start rounded-xl bg-slate-800 px-4 text-sm font-semibold text-slate-100 hover:bg-slate-700">
             {parsing ? 'Reading…' : 'Choose PDF'}
             <input
               type="file"
@@ -118,7 +117,7 @@ export default function PdfImport({ menuId, onDone }) {
           </label>
           <p className="text-xs text-slate-500">
             Clean Eatz weekly macro matrix. Names, variations, and macros are read
-            in the browser.
+            in the browser — nothing is uploaded.
           </p>
           {done ? <p className="text-sm text-emerald-400">{done}</p> : null}
         </>
@@ -166,24 +165,20 @@ export default function PdfImport({ menuId, onDone }) {
               </li>
             ))}
           </ul>
-          <div className="flex gap-2">
-            <button
-              onClick={confirm}
-              disabled={busy}
-              className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40"
-            >
+          <div className="flex items-center gap-3">
+            <Button onClick={confirm} disabled={busy}>
               {busy ? 'Adding…' : 'Add to menu'}
-            </button>
+            </Button>
             <button
               onClick={() => setRows(null)}
-              className="px-3 text-sm font-medium text-slate-400"
+              className="text-sm font-medium text-slate-400"
             >
               Cancel
             </button>
           </div>
         </>
       )}
-      {error ? <p className="text-sm text-rose-400">{error}</p> : null}
-    </section>
+      <ErrorText>{error}</ErrorText>
+    </div>
   )
 }

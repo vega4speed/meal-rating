@@ -63,7 +63,7 @@ export default function Onboarding() {
   else if (available === true) handleHint = 'Available.'
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center gap-6">
+    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Set up your profile</h1>
         <p className="mt-1 text-sm text-slate-400">
@@ -98,6 +98,8 @@ export default function Onboarding() {
 
         <Button
           type="submit"
+          full
+          size="lg"
           disabled={
             busy || !handleValid || available !== true || !displayName.trim()
           }

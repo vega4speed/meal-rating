@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { macroLine } from '../../lib/catalog.js'
+import { Card, Textarea } from '../../components/ui.jsx'
 import StarRating from '../../components/StarRating.jsx'
 
 function pct(x) {
   return x == null ? null : `${Math.round(x * 100)}%`
 }
+const fmt1 = (x) => (x == null ? null : Number(x).toFixed(1))
 
 export default function VariationRating({
   variation,
@@ -78,7 +80,7 @@ export default function VariationRating({
   const others = breakdown.filter((b) => b.user_id !== userId)
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-800 p-3">
+    <Card className="flex flex-col gap-3 p-3.5">
       <div className="flex items-start justify-between gap-3">
         <span className="font-medium text-slate-100">{variation.label}</span>
         {macros ? (
@@ -88,17 +90,31 @@ export default function VariationRating({
 
       {householdStat ? (
         <div className="text-xs text-slate-400">
-          Household {householdStat.avg_score} · {householdStat.rating_count}{' '}
+          <span className="font-medium text-amber-400">
+            ★ {fmt1(householdStat.avg_score)}
+          </span>{' '}
+          household · {householdStat.rating_count}{' '}
           rating{householdStat.rating_count === 1 ? '' : 's'}
           {householdStat.reorder_rate != null
-            ? ` · ${pct(householdStat.reorder_rate)} would reorder`
+            ? ` · ${pct(householdStat.reorder_rate)} reorder`
             : ''}
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <span className="text-xs text-slate-500">Your rating</span>
-        <StarRating value={score} onRate={rate} />
+      <div className="flex items-center justify-between gap-3">
+        <StarRating value={score} onRate={rate} size="md" />
+        {score != null ? (
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            className="text-xs font-medium text-slate-500 hover:text-rose-400 disabled:opacity-40"
+          >
+            Clear
+          </button>
+        ) : (
+          <span className="text-xs text-slate-600">tap to rate</span>
+        )}
       </div>
 
       {score != null ? (
@@ -108,10 +124,10 @@ export default function VariationRating({
               type="button"
               onClick={() => toggleReorder(true)}
               className={[
-                'rounded-lg px-3 py-1.5 text-sm font-medium',
+                'flex-1 rounded-lg py-2 text-sm font-medium transition-colors',
                 reorder === true
                   ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-300',
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
               ].join(' ')}
             >
               Would reorder
@@ -120,17 +136,18 @@ export default function VariationRating({
               type="button"
               onClick={() => toggleReorder(false)}
               className={[
-                'rounded-lg px-3 py-1.5 text-sm font-medium',
+                'flex-1 rounded-lg py-2 text-sm font-medium transition-colors',
                 reorder === false
                   ? 'bg-rose-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-300',
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
               ].join(' ')}
             >
               Wouldn’t
             </button>
           </div>
 
-          <input
+          <Textarea
+            rows={2}
             value={notes}
             maxLength={1000}
             onChange={(e) => setNotes(e.target.value)}
@@ -138,38 +155,33 @@ export default function VariationRating({
               if ((notes.trim() || null) !== (myRating?.notes ?? null))
                 save({ score, reorder, notes })
             }}
-            placeholder="Note (optional)"
-            className="min-h-[40px] w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 outline-none focus:border-emerald-500"
+            placeholder="Add a note (optional)"
           />
-
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="self-start text-xs font-medium text-rose-400 disabled:opacity-40"
-          >
-            Delete my rating
-          </button>
         </>
       ) : null}
 
       {others.length ? (
-        <ul className="flex flex-col gap-1 border-t border-slate-800 pt-2 text-xs text-slate-400">
+        <ul className="flex flex-col gap-1.5 border-t border-slate-800 pt-3 text-xs text-slate-400">
           {others.map((b) => (
-            <li key={b.user_id}>
-              {b.profiles?.display_name}: {'★'.repeat(b.score)}
-              {b.would_reorder === true
-                ? ' · would reorder'
-                : b.would_reorder === false
-                  ? ' · wouldn’t'
-                  : ''}
-              {b.notes ? ` — ${b.notes}` : ''}
+            <li key={b.user_id} className="flex flex-wrap items-center gap-x-2">
+              <span className="font-medium text-slate-300">
+                {b.profiles?.display_name}
+              </span>
+              <StarRating value={b.score} readOnly size="sm" />
+              {b.would_reorder === true ? (
+                <span className="text-emerald-400">would reorder</span>
+              ) : b.would_reorder === false ? (
+                <span className="text-rose-400">wouldn’t</span>
+              ) : null}
+              {b.notes ? (
+                <span className="w-full text-slate-500">“{b.notes}”</span>
+              ) : null}
             </li>
           ))}
         </ul>
       ) : null}
 
       {error ? <p className="text-xs text-rose-400">{error}</p> : null}
-    </div>
+    </Card>
   )
 }

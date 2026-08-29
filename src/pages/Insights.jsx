@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { useHousehold } from '../lib/household.jsx'
 import { relativeWeek, monthsSince } from '../lib/badges.js'
+import { Card, SectionHeading, Spinner, EmptyState } from '../components/ui.jsx'
+import { Button } from '../components/ui.jsx'
 
 function mean(xs) {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
@@ -85,18 +87,20 @@ export default function Insights() {
     return acc
   }, [data, memberIds])
 
-  if (loading) return <p className="py-8 text-sm text-slate-500">Loading…</p>
+  if (loading) return <Spinner />
   if (!activeId) {
     return (
-      <div className="flex flex-col gap-4 py-8">
-        <h1 className="text-xl font-semibold text-slate-100">Insights</h1>
-        <p className="text-sm text-slate-400">
-          Join or create a household first.
-        </p>
-        <Link to="/household" className="text-sm font-medium text-emerald-400">
-          Go to Household →
-        </Link>
-      </div>
+      <EmptyState
+        icon="🏠"
+        title="No household yet"
+        action={
+          <Link to="/household">
+            <Button>Get started</Button>
+          </Link>
+        }
+      >
+        Insights compare ratings across your household.
+      </EmptyState>
     )
   }
 
@@ -144,101 +148,100 @@ export default function Insights() {
   })
 
   return (
-    <div className="flex flex-col gap-8 py-2">
-      <h1 className="text-xl font-semibold text-slate-100">
-        {activeHousehold?.name} · Insights
-      </h1>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-xl font-semibold text-slate-100">Insights</h1>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">Reorder list</h2>
+      <section className="flex flex-col gap-2.5">
+        <SectionHeading>Reorder list</SectionHeading>
         <p className="text-xs text-slate-500">
-          Liked meals (household ★ 4+), stalest first.
+          Meals the household rates ★ 4+, the ones you haven’t had in a while
+          first.
         </p>
         {reorder.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            Nothing rated 4+ yet.
-          </p>
+          <p className="text-sm text-slate-500">Nothing rated 4+ yet.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-slate-800">
+          <Card className="divide-y divide-slate-800 p-0">
             {reorder.map((s) => (
-              <li key={s.meal_id}>
-                <Link
-                  to={`/meals/${s.meal_id}`}
-                  className="flex items-center justify-between py-2.5"
-                >
-                  <span className="text-slate-100">
-                    {data.mealName[s.meal_id]}
+              <Link
+                key={s.meal_id}
+                to={`/meals/${s.meal_id}`}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <span className="min-w-0 truncate text-slate-100">
+                  {data.mealName[s.meal_id]}
+                </span>
+                <span className="shrink-0 text-right text-xs">
+                  <span className="font-medium text-amber-400">
+                    ★ {Number(s.avg_score).toFixed(1)}
                   </span>
-                  <span className="text-right text-xs">
-                    <span className="text-amber-400">★ {s.avg_score}</span>
-                    <span className="block text-slate-500">
-                      {relativeWeek(s.last)}
-                    </span>
+                  <span className="block text-slate-500">
+                    {relativeWeek(s.last)}
                   </span>
-                </Link>
-              </li>
+                </span>
+              </Link>
             ))}
-          </ul>
+          </Card>
         )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">
-          Where you disagree
-        </h2>
+      <section className="flex flex-col gap-2.5">
+        <SectionHeading>Where you disagree</SectionHeading>
         {disagreements.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No big gaps yet — need two people rating the same meals.
+            No big gaps yet — needs two people rating the same meals.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-slate-800">
+          <Card className="divide-y divide-slate-800 p-0">
             {disagreements.map((d) => (
-              <li
+              <Link
                 key={d.mid}
-                className="flex items-center justify-between py-2.5"
+                to={`/meals/${d.mid}`}
+                className="flex items-center justify-between gap-3 px-4 py-3"
               >
-                <Link
-                  to={`/meals/${d.mid}`}
-                  className="text-slate-100"
-                >
+                <span className="min-w-0 truncate text-slate-100">
                   {data.mealName[d.mid]}
-                </Link>
-                <span className="text-xs text-slate-400">
-                  you {d.mineScore.toFixed(1)} · {nameOf[d.uid]}{' '}
-                  {d.sc.toFixed(1)}
                 </span>
-              </li>
+                <span className="shrink-0 text-xs text-slate-400">
+                  <span className="text-slate-200">you {d.mineScore.toFixed(1)}</span>
+                  {' vs '}
+                  {nameOf[d.uid]} {d.sc.toFixed(1)}
+                </span>
+              </Link>
             ))}
-          </ul>
+          </Card>
         )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-slate-400">Per person</h2>
-        <div className="overflow-x-auto">
+      <section className="flex flex-col gap-2.5">
+        <SectionHeading>Per person</SectionHeading>
+        <Card className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-slate-500">
-                <th className="py-1 pr-3 font-medium">Person</th>
-                <th className="py-1 pr-3 font-medium">Rated</th>
-                <th className="py-1 pr-3 font-medium">Avg</th>
-                <th className="py-1 font-medium">Picks</th>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="px-4 py-2 font-semibold">Person</th>
+                <th className="py-2 pr-3 text-right font-semibold">Rated</th>
+                <th className="py-2 pr-3 text-right font-semibold">Avg</th>
+                <th className="py-2 pr-4 text-right font-semibold">Picks</th>
               </tr>
             </thead>
             <tbody>
               {perPerson.map((p) => (
                 <tr key={p.uid} className="border-t border-slate-800">
-                  <td className="py-2 pr-3 text-slate-100">{p.name}</td>
-                  <td className="py-2 pr-3 text-slate-300">{p.rated}</td>
-                  <td className="py-2 pr-3 text-slate-300">
+                  <td className="px-4 py-2.5 text-slate-100">{p.name}</td>
+                  <td className="py-2.5 pr-3 text-right text-slate-300">
+                    {p.rated}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right text-slate-300">
                     {p.avg != null ? p.avg.toFixed(1) : '—'}
                   </td>
-                  <td className="py-2 text-slate-300">{p.picks}</td>
+                  <td className="py-2.5 pr-4 text-right text-slate-300">
+                    {p.picks}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       </section>
     </div>
   )

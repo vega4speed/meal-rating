@@ -3,7 +3,14 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
-import { Button, Field, Input } from '../../components/ui.jsx'
+import {
+  Button,
+  Field,
+  Input,
+  Pill,
+  Spinner,
+  SectionHeading,
+} from '../../components/ui.jsx'
 import BackLink from '../../components/BackLink.jsx'
 import VariationRating from './VariationRating.jsx'
 
@@ -109,12 +116,12 @@ export default function MealDetail() {
     await load()
   }
 
-  if (loading) return <p className="py-8 text-sm text-slate-500">Loading…</p>
+  if (loading) return <Spinner />
   if (!meal) return <p className="py-8 text-sm text-slate-500">Meal not found.</p>
 
   return (
-    <div className="flex flex-col gap-5 py-2">
-      <BackLink to="/meals" />
+    <div className="flex flex-col gap-5">
+      <BackLink to="/meals">Meals</BackLink>
       <div>
         <h1 className="text-xl font-semibold text-slate-100">{meal.name}</h1>
         <p className="mt-1 text-xs text-slate-500">{meal.providers?.name}</p>
@@ -125,22 +132,15 @@ export default function MealDetail() {
       ) : null}
 
       {meal.tags?.length ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {meal.tags.map((t) => (
-            <span
-              key={t}
-              className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300"
-            >
-              {t}
-            </span>
+            <Pill key={t}>{t}</Pill>
           ))}
         </div>
       ) : null}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-slate-400">
-          Variations &amp; ratings
-        </h2>
+        <SectionHeading>Variations &amp; ratings</SectionHeading>
         {variations.map((v) => (
           <VariationRating
             key={v.id}
@@ -156,7 +156,7 @@ export default function MealDetail() {
         {adding ? (
           <form
             onSubmit={addVariation}
-            className="flex flex-col gap-3 rounded-xl border border-slate-800 p-3"
+            className="flex flex-col gap-3 rounded-2xl border border-slate-800 p-4"
           >
             <Field label="Label" hint="e.g. Spicy, with sweet potato">
               <Input
@@ -173,14 +173,14 @@ export default function MealDetail() {
                 onChange={(e) => setNotes(e.target.value)}
               />
             </Field>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
               <Button type="submit" disabled={busy || !label.trim()}>
                 {busy ? 'Adding…' : 'Add variation'}
               </Button>
               <button
                 type="button"
                 onClick={() => setAdding(false)}
-                className="px-3 text-sm font-medium text-slate-400"
+                className="text-sm font-medium text-slate-400"
               >
                 Cancel
               </button>

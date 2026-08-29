@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
-import { HouseholdProvider } from './lib/household.jsx'
+import { HouseholdProvider, useHousehold } from './lib/household.jsx'
+import { Spinner } from './components/ui.jsx'
 import BottomNav from './components/BottomNav.jsx'
 import SignIn from './pages/SignIn.jsx'
 import Onboarding from './pages/Onboarding.jsx'
@@ -19,27 +20,41 @@ import JoinByCode from './pages/household/JoinByCode.jsx'
 import FindPeople from './pages/household/FindPeople.jsx'
 import Invites from './pages/household/Invites.jsx'
 
-function Loading() {
+function Header() {
+  const { profile } = useAuth()
+  const { activeHousehold } = useHousehold()
   return (
-    <div className="flex min-h-[60vh] items-center justify-center text-sm text-slate-500">
-      Loading…
-    </div>
+    <header
+      className="sticky top-0 z-10 border-b border-slate-800/70 bg-slate-950/80 backdrop-blur"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-100">Meal Rating</div>
+          {activeHousehold?.name ? (
+            <div className="truncate text-xs text-slate-500">
+              {activeHousehold.name}
+            </div>
+          ) : null}
+        </div>
+        <Link
+          to="/profile"
+          className="rounded-full bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-200"
+        >
+          {profile?.display_name ?? 'Profile'}
+        </Link>
+      </div>
+    </header>
   )
 }
 
 function Shell() {
-  const { profile } = useAuth()
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col">
-      <header className="flex items-center justify-between px-4 pt-4 text-sm">
-        <span className="font-semibold text-slate-200">Meal Rating</span>
-        <Link to="/profile" className="text-emerald-400">
-          {profile?.display_name ?? 'Profile'}
-        </Link>
-      </header>
+      <Header />
       <main
-        className="flex-1 px-4 pt-4"
-        style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}
+        className="flex-1 px-4 pt-5"
+        style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}
       >
         <Routes>
           <Route path="/" element={<ThisWeek />} />
@@ -67,7 +82,7 @@ function Shell() {
 function Gate() {
   const { loading, session, profile } = useAuth()
 
-  if (loading) return <Loading />
+  if (loading) return <Spinner />
 
   if (!session) {
     return (

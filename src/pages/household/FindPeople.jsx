@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
-import { Field, Input } from '../../components/ui.jsx'
+import { Button, Field, Input } from '../../components/ui.jsx'
 import BackLink from '../../components/BackLink.jsx'
 
 export default function FindPeople() {
@@ -55,7 +55,7 @@ export default function FindPeople() {
 
   if (!activeId) {
     return (
-      <div className="flex flex-col gap-4 py-2">
+      <div className="flex flex-col gap-4">
         <BackLink to="/household" />
         <p className="text-sm text-slate-400">
           Create or join a household first.
@@ -65,7 +65,7 @@ export default function FindPeople() {
   }
 
   return (
-    <div className="flex flex-col gap-5 py-2">
+    <div className="flex flex-col gap-5">
       <BackLink to="/household" />
       <div>
         <h1 className="text-xl font-semibold text-slate-100">Find people</h1>
@@ -105,13 +105,13 @@ export default function FindPeople() {
                 ) : state && state !== 'sending' ? (
                   <span className="text-sm text-slate-400">{state}</span>
                 ) : (
-                  <button
+                  <Button
+                    size="sm"
                     disabled={state === 'sending'}
                     onClick={() => invite(p.id)}
-                    className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40"
                   >
                     Invite
-                  </button>
+                  </Button>
                 )}
               </li>
             )

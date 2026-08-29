@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
-import { Button, Field, Input } from '../components/ui.jsx'
+import { Button, Field, Input, ErrorText } from '../components/ui.jsx'
 
 export default function SignIn() {
   const { signInWithOtp, verifyOtp } = useAuth()
@@ -27,17 +27,17 @@ export default function SignIn() {
     const { error } = await verifyOtp(email.trim(), code.trim())
     setBusy(false)
     if (error) setError(error.message)
-    // On success the auth listener swaps the whole tree — nothing to do here.
   }
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center gap-6">
+    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-8 px-6">
       <div className="text-center">
+        <div className="mx-auto mb-3 text-4xl">🍱</div>
         <h1 className="text-2xl font-bold text-slate-100">Meal Rating</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-slate-400">
           {stage === 'email'
             ? 'Sign in with a code sent to your email.'
-            : `Enter the code sent to ${email}.`}
+            : `We sent a code to ${email}.`}
         </p>
       </div>
 
@@ -48,13 +48,14 @@ export default function SignIn() {
               type="email"
               inputMode="email"
               autoComplete="email"
+              autoFocus
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
             />
           </Field>
-          <Button type="submit" disabled={busy || !email}>
+          <Button type="submit" full size="lg" disabled={busy || !email}>
             {busy ? 'Sending…' : 'Send code'}
           </Button>
         </form>
@@ -65,16 +66,18 @@ export default function SignIn() {
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
+              autoFocus
               maxLength={8}
               required
               value={code}
               onChange={(e) =>
                 setCode(e.target.value.replace(/\D/g, '').slice(0, 8))
               }
-              placeholder="12345678"
+              placeholder="000000"
+              className="text-center text-2xl tracking-[0.4em]"
             />
           </Field>
-          <Button type="submit" disabled={busy || code.length < 6}>
+          <Button type="submit" full size="lg" disabled={busy || code.length < 6}>
             {busy ? 'Verifying…' : 'Verify'}
           </Button>
           <button

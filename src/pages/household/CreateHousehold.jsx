@@ -30,7 +30,7 @@ export default function CreateHousehold() {
   }
 
   return (
-    <div className="flex flex-col gap-5 py-2">
+    <div className="flex flex-col gap-5">
       <BackLink to="/household" />
       <h1 className="text-xl font-semibold text-slate-100">Create a household</h1>
       <form onSubmit={submit} className="flex flex-col gap-4">
@@ -43,7 +43,7 @@ export default function CreateHousehold() {
             placeholder="Home"
           />
         </Field>
-        <Button type="submit" disabled={busy || !name.trim()}>
+        <Button type="submit" full size="lg" disabled={busy || !name.trim()}>
           {busy ? 'Creating…' : 'Create'}
         </Button>
         {error ? <p className="text-sm text-rose-400">{error}</p> : null}
