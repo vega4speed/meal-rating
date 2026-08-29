@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
 import { MEAL_TAGS, normalizeMealName } from '../../lib/catalog.js'
-import { Button, Input, Select, Spinner } from '../../components/ui.jsx'
+import { Button, Input, Spinner } from '../../components/ui.jsx'
 import TagChips from '../../components/TagChips.jsx'
 
 const SORTS = [
@@ -119,31 +119,34 @@ export default function MealList() {
         placeholder="Search meals"
       />
 
-      <div className="flex items-center gap-2">
-        <Select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="w-auto"
-          aria-label="Sort meals"
-        >
-          {SORTS.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </Select>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <label className="flex items-center gap-1.5 text-slate-500">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            aria-label="Sort meals"
+            className="rounded-md border border-slate-700 bg-slate-900 py-1 pl-2 pr-6 text-xs text-slate-200 outline-none focus:border-emerald-500"
+          >
+            {SORTS.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           aria-pressed={pickedNotRated}
           onClick={() => setPickedNotRated((v) => !v)}
           className={[
-            'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+            'rounded-full px-2.5 py-1 font-medium transition-colors',
             pickedNotRated
               ? 'bg-emerald-500 text-slate-950'
-              : 'bg-slate-800 text-slate-300',
+              : 'bg-slate-800 text-slate-400',
           ].join(' ')}
         >
-          Picked · not rated
+          Picked, unrated
         </button>
       </div>
 
