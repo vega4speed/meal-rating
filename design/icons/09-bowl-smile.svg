@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Meal Rating — smiling bowl">
+  <rect width="512" height="512" rx="114" fill="#0b1120"/>
+  <g stroke="#34d399" stroke-width="22" stroke-linecap="round" fill="none">
+    <path d="M150 244h212"/>
+    <path d="M150 244a106 106 0 0 0 212 0"/>
+  </g>
+  <g fill="#fbbf24">
+    <path transform="translate(179 144) scale(2.2)"
+      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+    <path transform="translate(279 144) scale(2.2)"
+      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  </g>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Meal Rating — review bubble with star">
+  <rect width="512" height="512" rx="114" fill="#0b1120"/>
+  <path fill="#34d399" d="M128 116h256a44 44 0 0 1 44 44v150a44 44 0 0 1-44 44H244l-66 58v-58h-50a44 44 0 0 1-44-44V160a44 44 0 0 1 44-44z"/>
+  <path transform="translate(165 152) scale(7.6)" fill="#fbbf24"
+    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+</svg>

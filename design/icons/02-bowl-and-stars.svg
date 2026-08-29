@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Meal Rating — bowl with rising stars">
+  <rect width="512" height="512" rx="114" fill="#0b1120"/>
+  <path d="M136 286a120 112 0 0 0 240 0z" fill="#34d399"/>
+  <ellipse cx="256" cy="286" rx="120" ry="26" fill="#2b9e78"/>
+  <path transform="translate(216 79) scale(3.33)" fill="#fbbf24"
+    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  <path transform="translate(151 128) scale(2.4)" fill="#fbbf24"
+    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  <path transform="translate(300 138) scale(2.1)" fill="#fbbf24"
+    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+</svg>

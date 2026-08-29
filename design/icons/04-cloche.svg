@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Meal Rating — cloche with star knob">
+  <rect width="512" height="512" rx="114" fill="#0b1120"/>
+  <rect x="248" y="168" width="16" height="52" rx="8" fill="#34d399"/>
+  <path d="M140 326a116 116 0 0 1 232 0z" fill="#34d399"/>
+  <rect x="116" y="326" width="280" height="28" rx="14" fill="#34d399"/>
+  <path transform="translate(221 118) scale(2.9)" fill="#fbbf24"
+    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Meal Rating — fork with star">
+  <rect width="512" height="512" rx="114" fill="#0b1120"/>
+  <g stroke="#34d399" stroke-width="22" stroke-linecap="round" fill="none">
+    <path d="M212 126v74"/>
+    <path d="M256 126v74"/>
+    <path d="M300 126v74"/>
+    <path d="M212 200h88"/>
+    <path d="M256 200v190"/>
+  </g>
+  <path transform="translate(312 104) scale(3.4)" fill="#fbbf24"
+    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+</svg>
