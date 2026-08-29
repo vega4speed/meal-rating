@@ -94,6 +94,10 @@ export default function HouseholdHome() {
     }
   }
 
+  const joinUrl = code
+    ? `${window.location.origin}${import.meta.env.BASE_URL}#/join/${code}`
+    : ''
+
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(code)
@@ -101,6 +105,24 @@ export default function HouseholdHome() {
       setTimeout(() => setCopied(false), 1500)
     } catch {
       /* clipboard unavailable */
+    }
+  }
+
+  async function shareLink() {
+    const data = {
+      title: 'Join our household on Meal Rating',
+      text: `Join ${activeHousehold?.name} on Meal Rating`,
+      url: joinUrl,
+    }
+    try {
+      if (navigator.share) await navigator.share(data)
+      else {
+        await navigator.clipboard.writeText(joinUrl)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }
+    } catch {
+      /* cancelled or unavailable */
     }
   }
 
@@ -190,31 +212,37 @@ export default function HouseholdHome() {
 
       <section className="flex flex-col gap-2.5">
         <SectionHeading>Join code</SectionHeading>
-        <Card className="flex items-center justify-between gap-3">
-          <button
-            onClick={copyCode}
-            className="font-mono text-xl tracking-[0.3em] text-slate-100"
-          >
-            {code}
-          </button>
-          <div className="flex items-center gap-3 text-sm font-medium">
-            <span className="text-emerald-400">{copied ? 'Copied' : null}</span>
-            <button onClick={copyCode} className="text-slate-400">
-              Copy
+        <Card className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={copyCode}
+              className="font-mono text-xl tracking-[0.3em] text-slate-100"
+            >
+              {code}
             </button>
-            {isOwner ? (
-              <button
-                disabled={busy}
-                onClick={rotate}
-                className="text-emerald-400 disabled:opacity-40"
-              >
-                Rotate
+            <div className="flex items-center gap-3 text-sm font-medium">
+              <span className="text-emerald-400">{copied ? 'Copied' : null}</span>
+              <button onClick={copyCode} className="text-slate-400">
+                Copy
               </button>
-            ) : null}
+              {isOwner ? (
+                <button
+                  disabled={busy}
+                  onClick={rotate}
+                  className="text-emerald-400 disabled:opacity-40"
+                >
+                  Rotate
+                </button>
+              ) : null}
+            </div>
           </div>
+          <Button variant="secondary" size="sm" full onClick={shareLink}>
+            Share invite link
+          </Button>
         </Card>
         <p className="text-xs text-slate-500">
-          Anyone with this code can join the household.
+          Anyone with this code or link can join the household. Rotating the code
+          invalidates old links.
         </p>
       </section>
 

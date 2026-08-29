@@ -87,11 +87,11 @@ export default function ThisWeek() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex h-full min-h-[75vh] flex-col gap-5">
       <WeekMenu menuId={menuId} />
       <Link
         to="/menus"
-        className="text-center text-sm font-medium text-emerald-400"
+        className="mt-auto border-t border-slate-800 pt-4 text-center text-sm font-medium text-emerald-400"
       >
         Past weeks →
       </Link>

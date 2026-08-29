@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
 import { HouseholdProvider, useHousehold } from './lib/household.jsx'
 import { Spinner } from './components/ui.jsx'
@@ -18,6 +19,7 @@ import HouseholdHome from './pages/household/HouseholdHome.jsx'
 import CreateHousehold from './pages/household/CreateHousehold.jsx'
 import JoinByCode from './pages/household/JoinByCode.jsx'
 import FindPeople from './pages/household/FindPeople.jsx'
+import JoinLink, { PENDING_JOIN_KEY } from './pages/household/JoinLink.jsx'
 import Invites from './pages/household/Invites.jsx'
 
 function Header() {
@@ -70,6 +72,7 @@ function Shell() {
           <Route path="/household/join" element={<JoinByCode />} />
           <Route path="/household/find" element={<FindPeople />} />
           <Route path="/household/invites" element={<Invites />} />
+          <Route path="/join/:code" element={<JoinLink />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -81,6 +84,19 @@ function Shell() {
 
 function Gate() {
   const { loading, session, profile } = useAuth()
+  const loc = useLocation()
+
+  // Remember a /join/<code> deep link so it survives sign-in + onboarding.
+  useEffect(() => {
+    const m = loc.pathname.match(/^\/join\/([A-Za-z0-9]+)/)
+    if (m) {
+      try {
+        localStorage.setItem(PENDING_JOIN_KEY, m[1].toUpperCase())
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [loc.pathname])
 
   if (loading) return <Spinner />
 

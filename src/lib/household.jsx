@@ -68,6 +68,31 @@ export function HouseholdProvider({ children }) {
     }
   }, [])
 
+  // Fallback consumer for a /join/<code> link that the router didn't preserve
+  // through sign-in. JoinLink handles the common path; this catches the rest.
+  useEffect(() => {
+    if (!user || loading) return
+    let code
+    try {
+      code = localStorage.getItem('meal-rating.pendingJoinCode')
+    } catch {
+      code = null
+    }
+    if (!code) return
+    ;(async () => {
+      const { data } = await supabase.rpc('join_household_by_code', {
+        p_code: code,
+      })
+      try {
+        localStorage.removeItem('meal-rating.pendingJoinCode')
+      } catch {
+        /* ignore */
+      }
+      await refresh()
+      if (data?.id) setActive(data.id)
+    })()
+  }, [user, loading, refresh, setActive])
+
   const active = memberships.find((m) => m.household_id === activeId) ?? null
 
   return (

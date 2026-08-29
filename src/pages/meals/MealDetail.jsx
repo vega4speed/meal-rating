@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
+import { relativeWeek } from '../../lib/badges.js'
 import {
   Button,
   Field,
@@ -16,6 +17,7 @@ import VariationRating from './VariationRating.jsx'
 
 export default function MealDetail() {
   const { id } = useParams()
+  const nav = useNavigate()
   const { user } = useAuth()
   const { activeId } = useHousehold()
 
@@ -24,6 +26,7 @@ export default function MealDetail() {
   const [myRatings, setMyRatings] = useState({}) // variation_id -> row
   const [hhStats, setHhStats] = useState({}) // variation_id -> row
   const [breakdown, setBreakdown] = useState({}) // variation_id -> [rows]
+  const [history, setHistory] = useState(null) // { offered, had }
   const [loading, setLoading] = useState(true)
 
   const [adding, setAdding] = useState(false)
@@ -87,6 +90,27 @@ export default function MealDetail() {
       }
       setBreakdown(grouped)
     }
+
+    if (activeId) {
+      const [off, had] = await Promise.all([
+        supabase
+          .from('v_meal_household_last_offered')
+          .select('last_week')
+          .eq('household_id', activeId)
+          .eq('meal_id', id)
+          .maybeSingle(),
+        supabase
+          .from('v_meal_household_last_had')
+          .select('last_week')
+          .eq('household_id', activeId)
+          .eq('meal_id', id)
+          .maybeSingle(),
+      ])
+      setHistory({
+        offered: off.data?.last_week ?? null,
+        had: had.data?.last_week ?? null,
+      })
+    }
     setLoading(false)
   }, [id, user.id, activeId])
 
@@ -136,6 +160,13 @@ export default function MealDetail() {
           {meal.tags.map((t) => (
             <Pill key={t}>{t}</Pill>
           ))}
+        </div>
+      ) : null}
+
+      {history && (history.offered || history.had) ? (
+        <div className="flex gap-4 text-xs text-slate-500">
+          <span>On a menu: {relativeWeek(history.offered)}</span>
+          <span>Last had: {relativeWeek(history.had)}</span>
         </div>
       ) : null}
 
@@ -196,6 +227,10 @@ export default function MealDetail() {
           </button>
         )}
       </section>
+
+      <Button variant="secondary" full size="lg" onClick={() => nav(-1)}>
+        Done
+      </Button>
     </div>
   )
 }

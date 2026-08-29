@@ -525,6 +525,10 @@ Profiles RLS: `select` open to any `authenticated` (no email column, so safe —
 is what makes handle search work in Phase 2); `insert`/`update` gated to own row.
 `citext` extension installed into `extensions` schema for case-insensitive handles.
 
+Onboarding asks for **name first**, then auto-suggests a handle from it
+(`slugify(name)`, bumped with a numeric suffix until free) which the user accepts or
+edits. The handle is only used for search-to-invite in *Find People*.
+
 **Deliverable:** Sign in with an emailed code on a phone, close the app, come back a
 week later still signed in.
 
@@ -551,6 +555,11 @@ REST RPCs; they only probe membership for `auth.uid()` given a household UUID, s
 this is accepted rather than moved to a private schema.
 
 **Deliverable:** Two people on two phones end up in the same household by both routes.
+
+Added later: a **share link** — `#/join/<code>` deep link (route `/join/:code`). If the
+recipient isn't signed in, the code is stashed in `localStorage` and consumed after
+sign-in + onboarding (by `JoinLink`, with a fallback consumer in `HouseholdProvider`).
+Rotating the join code invalidates outstanding links.
 
 ---
 
@@ -617,7 +626,8 @@ the household average.
 - [x] Week View with ratings, badges (`NEW` / `LOVED` / `SKIP` / `YOUR FAVORITE`;
       `NOT IN 6 MONTHS` deferred to Phase 6 — needs order history), sorted by
       household rating
-- [x] Pick meals — `menu_selections`, visible to the whole household
+- [x] Pick meals — `menu_selections` with a **quantity** stepper (Pick → qty 1,
+      then −/+; − at 1 removes the pick), visible to the whole household
 - [x] Past weeks archive (`/menus`)
 
 **PDF import (added 2026-08-28).** The builder also takes a PDF of the Clean Eatz
@@ -653,8 +663,10 @@ from their own phone.
       biggest mean-score gap first (gap ≥ 1)
 - [x] Per-person stats: meals rated, average score, picks
 
-Migration `meals_last_had_view`: `v_meal_household_last_had` (`security_invoker`) =
-latest published `week_of` in which a household member actually *selected* that meal.
+Migrations `meals_last_had_view` / `meals_last_offered_view` (both `security_invoker`):
+`v_meal_household_last_had` = latest published `week_of` a member actually *selected*
+the meal; `v_meal_household_last_offered` = latest published week it was *on the menu*
+at all. Both shown on the meal detail page ("On a menu" / "Last had").
 New bottom-nav tab **Insights** (`/insights`). "Ordered" is defined as a
 `menu_selection` on a published menu — a meal on a menu that nobody picked doesn't
 count as had.

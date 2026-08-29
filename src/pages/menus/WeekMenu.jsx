@@ -68,7 +68,7 @@ export default function WeekMenu({ menuId }) {
       itemIds.length
         ? supabase
             .from('menu_selections')
-            .select('menu_item_id, user_id, profiles(display_name)')
+            .select('menu_item_id, user_id, qty, profiles(display_name)')
             .in('menu_item_id', itemIds)
         : Promise.resolve({ data: [] }),
       mealIds.length
@@ -97,6 +97,7 @@ export default function WeekMenu({ menuId }) {
     for (const row of pickRes.data ?? []) {
       ;(p[row.menu_item_id] ||= []).push({
         user_id: row.user_id,
+        qty: row.qty ?? 1,
         display_name: row.profiles?.display_name,
       })
     }
@@ -108,23 +109,28 @@ export default function WeekMenu({ menuId }) {
     load()
   }, [load])
 
-  async function togglePick(itemId) {
-    const mineHere = (picks[itemId] ?? []).some((x) => x.user_id === user.id)
-    // Optimistic — no full-page flash.
+  function myPick(itemId) {
+    return (picks[itemId] ?? []).find((x) => x.user_id === user.id) ?? null
+  }
+
+  function patchMyPick(itemId, qty) {
     setPicks((cur) => {
-      const list = cur[itemId] ?? []
-      return {
-        ...cur,
-        [itemId]: mineHere
-          ? list.filter((x) => x.user_id !== user.id)
-          : [
-              ...list,
-              { user_id: user.id, display_name: profile?.display_name ?? 'You' },
-            ],
-      }
+      const list = (cur[itemId] ?? []).filter((x) => x.user_id !== user.id)
+      if (qty > 0)
+        list.push({
+          user_id: user.id,
+          qty,
+          display_name: profile?.display_name ?? 'You',
+        })
+      return { ...cur, [itemId]: list }
     })
+  }
+
+  async function togglePick(itemId) {
+    const mine = myPick(itemId)
+    patchMyPick(itemId, mine ? 0 : 1)
     setBusyItem(itemId)
-    if (mineHere) {
+    if (mine) {
       await supabase
         .from('menu_selections')
         .delete()
@@ -133,8 +139,25 @@ export default function WeekMenu({ menuId }) {
     } else {
       await supabase
         .from('menu_selections')
-        .insert({ menu_item_id: itemId, user_id: user.id })
+        .insert({ menu_item_id: itemId, user_id: user.id, qty: 1 })
     }
+    setBusyItem(null)
+    load()
+  }
+
+  async function changeQty(itemId, delta) {
+    const mine = myPick(itemId)
+    if (!mine) return
+    const next = mine.qty + delta
+    if (next < 1) return togglePick(itemId)
+    if (next > 20) return
+    patchMyPick(itemId, next)
+    setBusyItem(itemId)
+    await supabase
+      .from('menu_selections')
+      .update({ qty: next })
+      .eq('menu_item_id', itemId)
+      .eq('user_id', user.id)
     setBusyItem(null)
     load()
   }
@@ -193,7 +216,7 @@ export default function WeekMenu({ menuId }) {
               lastHadWeek: lastHad[v?.meal_id] ?? null,
             })
             const pickers = picks[it.id] ?? []
-            const iPicked = pickers.some((x) => x.user_id === user.id)
+            const mine = pickers.find((x) => x.user_id === user.id) ?? null
             const others = pickers.filter((x) => x.user_id !== user.id)
             return (
               <Card as="li" key={it.id} className="flex flex-col gap-2.5 p-3.5">
@@ -214,19 +237,37 @@ export default function WeekMenu({ menuId }) {
                       </div>
                     ) : null}
                   </div>
-                  <button
-                    disabled={busyItem === it.id}
-                    onClick={() => togglePick(it.id)}
-                    aria-pressed={iPicked}
-                    className={[
-                      'shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60',
-                      iPicked
-                        ? 'bg-emerald-500 text-slate-950'
-                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700',
-                    ].join(' ')}
-                  >
-                    {iPicked ? '✓ Picked' : 'Pick'}
-                  </button>
+                  {mine ? (
+                    <div className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
+                      <button
+                        aria-label="Fewer"
+                        disabled={busyItem === it.id}
+                        onClick={() => changeQty(it.id, -1)}
+                        className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[1.25rem] text-center text-sm font-bold">
+                        {mine.qty}
+                      </span>
+                      <button
+                        aria-label="More"
+                        disabled={busyItem === it.id || mine.qty >= 20}
+                        onClick={() => changeQty(it.id, 1)}
+                        className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      disabled={busyItem === it.id}
+                      onClick={() => togglePick(it.id)}
+                      className="shrink-0 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-60"
+                    >
+                      Pick
+                    </button>
+                  )}
                 </div>
 
                 {badges.length ? (
@@ -260,9 +301,16 @@ export default function WeekMenu({ menuId }) {
 
                 {pickers.length ? (
                   <div className="text-xs text-slate-500">
-                    {iPicked ? 'You' : null}
-                    {iPicked && others.length ? ' and ' : null}
-                    {others.map((x) => x.display_name).join(', ')} picked this
+                    {[
+                      mine ? `You${mine.qty > 1 ? ` ×${mine.qty}` : ''}` : null,
+                      ...others.map(
+                        (x) =>
+                          `${x.display_name}${x.qty > 1 ? ` ×${x.qty}` : ''}`,
+                      ),
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}{' '}
+                    picked this
                   </div>
                 ) : null}
               </Card>
