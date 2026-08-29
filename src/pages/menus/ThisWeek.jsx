@@ -87,14 +87,21 @@ export default function ThisWeek() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <WeekMenu menuId={menuId} />
-      <Link
-        to="/menus"
-        className="pt-2 text-center text-sm text-slate-500 hover:text-slate-300"
+    <>
+      <div className="flex flex-col gap-5 pb-10">
+        <WeekMenu menuId={menuId} />
+      </div>
+      <div
+        className="pointer-events-none fixed inset-x-0 z-10 mx-auto flex max-w-md justify-center bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent pb-2 pt-8"
+        style={{ bottom: 'calc(58px + env(safe-area-inset-bottom))' }}
       >
-        Past weeks →
-      </Link>
-    </div>
+        <Link
+          to="/menus"
+          className="pointer-events-auto text-sm text-slate-500 hover:text-slate-300"
+        >
+          Past weeks →
+        </Link>
+      </div>
+    </>
   )
 }
