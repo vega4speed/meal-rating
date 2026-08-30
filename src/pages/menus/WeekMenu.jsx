@@ -5,10 +5,11 @@ import { useAuth } from '../../lib/auth.jsx'
 import { formatWeekOf } from '../../lib/week.js'
 import { macroLine } from '../../lib/catalog.js'
 import { mealBadges } from '../../lib/badges.js'
-import { Card, Pill, Spinner } from '../../components/ui.jsx'
+import { Card, Pill, Spinner, SectionHeading } from '../../components/ui.jsx'
 import StarRating from '../../components/StarRating.jsx'
 
 const fmt1 = (x) => (x == null ? null : Number(x).toFixed(1))
+const cx = (...xs) => xs.filter(Boolean).join(' ')
 
 export default function WeekMenu({ menuId }) {
   const { user, profile } = useAuth()
@@ -165,11 +166,140 @@ export default function WeekMenu({ menuId }) {
   if (loading) return <Spinner />
   if (!menu) return <p className="py-8 text-sm text-slate-500">Menu not found.</p>
 
+  const totalQty = (id) =>
+    (picks[id] ?? []).reduce((s, p) => s + (p.qty ?? 1), 0)
+
   const ranked = [...items].sort((a, b) => {
     const av = stats[a.variation_id]?.avg_score ?? -1
     const bv = stats[b.variation_id]?.avg_score ?? -1
     return bv - av || a.position - b.position
   })
+  const pickedItems = ranked.filter((it) => totalQty(it.id) > 0)
+  const openItems = ranked.filter((it) => totalQty(it.id) === 0)
+
+  function renderItem(it) {
+    const v = it.meal_variations
+    const meal = v?.meals
+    const st = stats[it.variation_id]
+    const myScore = mine[it.variation_id] ?? null
+    const badges = mealBadges({
+      householdAvg: st?.avg_score ?? null,
+      ratingCount: st?.rating_count ?? 0,
+      myScore,
+      lastHadWeek: lastHad[v?.meal_id] ?? null,
+    })
+    const pickers = picks[it.id] ?? []
+    const myItemPick = pickers.find((x) => x.user_id === user.id) ?? null
+    const others = pickers.filter((x) => x.user_id !== user.id)
+    const total = totalQty(it.id)
+
+    return (
+      <Card
+        as="li"
+        key={it.id}
+        className={cx(
+          'flex flex-col gap-2.5 p-3.5',
+          total > 0 && 'border-emerald-500/40 bg-emerald-500/[0.06]',
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              {total > 0 ? (
+                <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500 px-1.5 text-sm font-bold text-slate-950">
+                  {total}
+                </span>
+              ) : null}
+              <Link
+                to={`/meals/${meal?.id}`}
+                className="truncate font-medium text-slate-100"
+              >
+                {meal?.name}
+              </Link>
+            </div>
+            {v?.label && v.label !== 'Standard' ? (
+              <span className="text-xs text-slate-500">{v.label}</span>
+            ) : null}
+            {macroLine(v) ? (
+              <div className="mt-0.5 text-xs text-slate-500">{macroLine(v)}</div>
+            ) : null}
+          </div>
+          {myItemPick ? (
+            <div className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
+              <button
+                aria-label="Fewer"
+                disabled={busyItem === it.id}
+                onClick={() => changeQty(it.id, -1)}
+                className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
+              >
+                −
+              </button>
+              <span className="min-w-[1.25rem] text-center text-sm font-bold">
+                {myItemPick.qty}
+              </span>
+              <button
+                aria-label="More"
+                disabled={busyItem === it.id || myItemPick.qty >= 20}
+                onClick={() => changeQty(it.id, 1)}
+                className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              disabled={busyItem === it.id}
+              onClick={() => togglePick(it.id)}
+              className="shrink-0 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-60"
+            >
+              Pick
+            </button>
+          )}
+        </div>
+
+        {badges.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {badges.map((b) => (
+              <Pill key={b.label} tone={b.tone}>
+                {b.label}
+              </Pill>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-3 text-xs">
+          {st ? (
+            <span className="font-medium text-amber-400">
+              ★ {fmt1(st.avg_score)}
+              <span className="text-slate-500"> · {st.rating_count}</span>
+            </span>
+          ) : (
+            <span className="text-slate-500">No ratings yet</span>
+          )}
+          {myScore != null ? (
+            <span className="flex items-center gap-1 text-slate-400">
+              you <StarRating value={myScore} readOnly size="sm" />
+            </span>
+          ) : null}
+        </div>
+
+        {pickers.length ? (
+          <div className="text-xs text-emerald-300/80">
+            {[
+              myItemPick
+                ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`
+                : null,
+              ...others.map(
+                (x) => `${x.display_name}${x.qty > 1 ? ` ×${x.qty}` : ''}`,
+              ),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </div>
+        ) : null}
+      </Card>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -203,123 +333,32 @@ export default function WeekMenu({ menuId }) {
           No meals on this menu yet. Tap Edit to add some.
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {ranked.map((it) => {
-            const v = it.meal_variations
-            const meal = v?.meals
-            const st = stats[it.variation_id]
-            const myScore = mine[it.variation_id] ?? null
-            const badges = mealBadges({
-              householdAvg: st?.avg_score ?? null,
-              ratingCount: st?.rating_count ?? 0,
-              myScore,
-              lastHadWeek: lastHad[v?.meal_id] ?? null,
-            })
-            const pickers = picks[it.id] ?? []
-            const myItemPick =
-              pickers.find((x) => x.user_id === user.id) ?? null
-            const others = pickers.filter((x) => x.user_id !== user.id)
-            return (
-              <Card as="li" key={it.id} className="flex flex-col gap-2.5 p-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link
-                      to={`/meals/${meal?.id}`}
-                      className="font-medium text-slate-100"
-                    >
-                      {meal?.name}
-                    </Link>
-                    {v?.label && v.label !== 'Standard' ? (
-                      <span className="text-slate-500"> · {v.label}</span>
-                    ) : null}
-                    {macroLine(v) ? (
-                      <div className="mt-0.5 text-xs text-slate-500">
-                        {macroLine(v)}
-                      </div>
-                    ) : null}
-                  </div>
-                  {myItemPick ? (
-                    <div className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
-                      <button
-                        aria-label="Fewer"
-                        disabled={busyItem === it.id}
-                        onClick={() => changeQty(it.id, -1)}
-                        className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
-                      >
-                        −
-                      </button>
-                      <span className="min-w-[1.25rem] text-center text-sm font-bold">
-                        {myItemPick.qty}
-                      </span>
-                      <button
-                        aria-label="More"
-                        disabled={busyItem === it.id || myItemPick.qty >= 20}
-                        onClick={() => changeQty(it.id, 1)}
-                        className="flex h-9 w-9 items-center justify-center text-lg font-bold disabled:opacity-50"
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      disabled={busyItem === it.id}
-                      onClick={() => togglePick(it.id)}
-                      className="shrink-0 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-60"
-                    >
-                      Pick
-                    </button>
-                  )}
-                </div>
+        <>
+          {pickedItems.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <SectionHeading>
+                Picked · {pickedItems.reduce((s, it) => s + totalQty(it.id), 0)}{' '}
+                {pickedItems.reduce((s, it) => s + totalQty(it.id), 0) === 1
+                  ? 'meal'
+                  : 'meals'}
+              </SectionHeading>
+              <ul className="flex flex-col gap-3">
+                {pickedItems.map(renderItem)}
+              </ul>
+            </section>
+          ) : null}
 
-                {badges.length ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {badges.map((b) => (
-                      <Pill key={b.label} tone={b.tone}>
-                        {b.label}
-                      </Pill>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="flex items-center gap-3 text-xs">
-                  {st ? (
-                    <span className="font-medium text-amber-400">
-                      ★ {fmt1(st.avg_score)}
-                      <span className="text-slate-500">
-                        {' '}
-                        · {st.rating_count}
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="text-slate-500">No ratings yet</span>
-                  )}
-                  {myScore != null ? (
-                    <span className="flex items-center gap-1 text-slate-400">
-                      you <StarRating value={myScore} readOnly size="sm" />
-                    </span>
-                  ) : null}
-                </div>
-
-                {pickers.length ? (
-                  <div className="text-xs text-slate-500">
-                    {[
-                      myItemPick
-                        ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`
-                        : null,
-                      ...others.map(
-                        (x) =>
-                          `${x.display_name}${x.qty > 1 ? ` ×${x.qty}` : ''}`,
-                      ),
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}{' '}
-                    picked this
-                  </div>
-                ) : null}
-              </Card>
-            )
-          })}
-        </ul>
+          {openItems.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              {pickedItems.length > 0 ? (
+                <SectionHeading>Not picked</SectionHeading>
+              ) : null}
+              <ul className="flex flex-col gap-3">
+                {openItems.map(renderItem)}
+              </ul>
+            </section>
+          ) : null}
+        </>
       )}
     </div>
   )
