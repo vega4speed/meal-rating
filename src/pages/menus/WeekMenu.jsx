@@ -337,10 +337,8 @@ export default function WeekMenu({ menuId }) {
           {pickedItems.length > 0 ? (
             <section className="flex flex-col gap-2">
               <SectionHeading>
-                Picked · {pickedItems.reduce((s, it) => s + totalQty(it.id), 0)}{' '}
-                {pickedItems.reduce((s, it) => s + totalQty(it.id), 0) === 1
-                  ? 'meal'
-                  : 'meals'}
+                Picked · {pickedItems.length}{' '}
+                {pickedItems.length === 1 ? 'meal' : 'meals'}
               </SectionHeading>
               <ul className="flex flex-col gap-3">
                 {pickedItems.map(renderItem)}
