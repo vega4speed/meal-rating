@@ -2,11 +2,16 @@ name: Weekly menu import
 
 on:
   schedule:
-    # Tuesday mornings, US Central (cron is UTC). 10:00 UTC = 4am CST / 5am CDT;
-    # 15:00 UTC = 9am CST / 10am CDT — a second pass in case the menu posts later.
-    - cron: '0 10 * * 2'
-    - cron: '0 15 * * 2'
+    # Tuesday mornings, ~3am & ~6am US Central. Cron is UTC with no DST, so:
+    # 08:00 UTC = 3am CDT / 2am CST; 11:00 UTC = 6am CDT / 5am CST.
+    - cron: '0 8 * * 2'
+    - cron: '0 11 * * 2'
   workflow_dispatch:
+  # Editing the importer runs it once so changes get tested.
+  push:
+    paths:
+      - scripts/weekly-menu-import.mjs
+      - .github/workflows/weekly-menu.yml
 
 # Don't let two runs write at once.
 concurrency:
