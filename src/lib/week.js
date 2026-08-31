@@ -19,6 +19,18 @@ export function addWeeks(dateStr, n) {
   return toDateStr(x)
 }
 
+// The two menus in flight on the Clean Eatz cycle:
+//  - `thisWeek`: the menu being picked up / eaten / rated now (its order window
+//    was last Tue–Sun).
+//  - `nextWeek`: the menu that just dropped, whose order window is open now
+//    (Tue–Sun) and which is eaten next week.
+// Both are Monday `YYYY-MM-DD` strings — a menu's `week_of` is the Monday of the
+// week it is eaten.
+export function menuWeeks(d = new Date()) {
+  const thisWeek = mondayOf(d)
+  return { thisWeek, nextWeek: addWeeks(thisWeek, 1) }
+}
+
 export function formatWeekOf(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const start = new Date(y, m - 1, d)

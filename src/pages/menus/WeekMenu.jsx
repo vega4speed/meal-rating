@@ -20,7 +20,8 @@ function targetLabel(ep, lc) {
   return null
 }
 
-export default function WeekMenu({ menuId }) {
+export default function WeekMenu({ menuId, mode = 'order' }) {
+  const rating = mode === 'rate'
   const { user, profile } = useAuth()
   const [menu, setMenu] = useState(null)
   const [items, setItems] = useState([])
@@ -179,12 +180,27 @@ export default function WeekMenu({ menuId }) {
     await supabase.from('weekly_menus').update(patch).eq('id', menuId)
   }
 
+  async function rateMeal(it, score) {
+    const v = it.meal_variations
+    if (!v?.id) return
+    setMine((cur) => ({ ...cur, [v.id]: score }))
+    setBusyItem(it.id)
+    await supabase
+      .from('ratings')
+      .upsert(
+        { user_id: user.id, variation_id: v.id, score },
+        { onConflict: 'user_id,variation_id' },
+      )
+    setBusyItem(null)
+    load()
+  }
+
   if (loading) return <Spinner />
   if (!menu) return <p className="py-8 text-sm text-slate-500">Menu not found.</p>
 
   const ep = menu.order_extra_protein
   const lc = menu.order_low_carb
-  const wantLabel = targetLabel(ep, lc)
+  const wantLabel = rating ? null : targetLabel(ep, lc)
 
   // Which variation's macros to show for an item, given the order-level choice.
   function effectiveVar(it) {
@@ -240,12 +256,12 @@ export default function WeekMenu({ menuId }) {
         key={it.id}
         className={cx(
           'flex gap-3 p-3.5',
-          total > 0 && 'border-emerald-500/40 bg-emerald-500/[0.06]',
+          !rating && total > 0 && 'border-emerald-500/40 bg-emerald-500/[0.06]',
         )}
       >
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-center gap-2">
-            {total > 0 ? (
+            {!rating && total > 0 ? (
               <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500 px-1.5 text-sm font-bold text-slate-950">
                 {total}
               </span>
@@ -284,14 +300,14 @@ export default function WeekMenu({ menuId }) {
             ) : (
               <span className="text-slate-500">No ratings yet</span>
             )}
-            {myScore != null ? (
+            {!rating && myScore != null ? (
               <span className="flex items-center gap-1 text-slate-400">
                 you <StarRating value={myScore} readOnly size="sm" />
               </span>
             ) : null}
           </div>
 
-          {pickers.length ? (
+          {!rating && pickers.length ? (
             <div className="text-xs text-emerald-300/80">
               {[
                 myItemPick
@@ -308,7 +324,13 @@ export default function WeekMenu({ menuId }) {
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2.5">
-          {myItemPick ? (
+          {rating ? (
+            <StarRating
+              value={myScore}
+              onRate={(n) => rateMeal(it, n)}
+              size="md"
+            />
+          ) : myItemPick ? (
             <div className="flex items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
               <button
                 aria-label="Fewer"
@@ -366,11 +388,9 @@ export default function WeekMenu({ menuId }) {
           <h1 className="text-xl font-semibold text-slate-100">
             {formatWeekOf(menu.week_of)}
           </h1>
-          <div className="mt-1">
-            <Pill tone={menu.status === 'published' ? 'emerald' : 'amber'}>
-              {menu.status}
-            </Pill>
-          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {rating ? 'Rate what you’re eating' : 'Pick meals · order by Sunday'}
+          </p>
         </div>
         <Link
           to={`/menus/${menu.id}/edit`}
@@ -390,6 +410,8 @@ export default function WeekMenu({ menuId }) {
         <p className="text-sm text-slate-500">
           No meals on this menu yet. Tap Edit to add some.
         </p>
+      ) : rating ? (
+        <ul className="flex flex-col gap-3">{ranked.map(renderItem)}</ul>
       ) : (
         <>
           {pickedItems.length > 0 ? (

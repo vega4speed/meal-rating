@@ -684,12 +684,25 @@ scrolling.
 - [ ] iOS Safari + Android Chrome testing, home-screen install check
 - [ ] **Keep-alive:** the weekly menu-import Action (below) doubles as the keep-alive
 - [x] **Weekly menu auto-import** — `.github/workflows/weekly-menu.yml` runs Tuesday
-      mornings (`0 10` and `0 15` UTC): Playwright scrapes the live Clean Eatz menu
-      for the Murfreesboro cafe (photos + descriptions) and parses the "This Week"
-      macros-matrix PDF (names + variation macros), then POSTs to the token-gated
-      `meals.import_weekly_menu` RPC. Idempotent — re-runs don't double-count
-      `menu_appearances`. Needs repo secret `CE_IMPORT_TOKEN` = `ce-weekly-import-2026`.
-      Clean Eatz doesn't publish a Tuesday post time; the two runs are best-effort.
+      mornings (`0 8` and `0 11` UTC → ~3am / 6am Central): Playwright scrapes the
+      live Clean Eatz menu for the Murfreesboro cafe and parses the "This Week"
+      macros-matrix PDF, then POSTs to the token-gated `meals.import_weekly_menu`
+      RPC. Idempotent — re-runs don't double-count `menu_appearances`. Needs repo
+      secret `CE_IMPORT_TOKEN` = `ce-weekly-import-2026`. Clean Eatz doesn't publish
+      a Tuesday post time; the two runs are best-effort.
+      - **Mains + variation macros** come from the matrix PDF; photos, blurbs, and
+        prices from the live cards (token-set Jaccard ≥ 0.6 name match).
+      - **Add-ons are one meal per live flavor.** The matrix carries a *static*
+        add-on block Clean Eatz never updates, so it's ignored; the live cards
+        (`ADDON_CATS` in the script — PB&J / Empanada / Overnight Oatz / Breakfast
+        Sammiez + the no-flavor Buckeyes / Energy Bites) are authoritative for
+        add-on identity, price, and blurb. Flavor names drift slightly week to
+        week ("Chicken & Waffle" vs "Chicken & Waffles") — merge the odd dup by hand.
+      - The RPC also writes a **provider-level menu snapshot** (`weekly_menus` row
+        with `household_id IS NULL`, one per `week_of`, readable by any
+        authenticated user) listing that week's meals in menu order. `ThisWeek`'s
+        "Next week" tab offers it via `meals.adopt_global_menu()` so a household
+        never has to bulk-paste a menu that already imported.
 
 **Deliverable:** Stable enough to stop thinking about.
 
@@ -709,9 +722,16 @@ each picked meal. No per-week versioning of macros/blurbs/photos/price — one c
 record per meal, refreshed from the latest menu appearance; broken image links fall
 back to a placeholder client-side.
 
-The weekly importer also pulls **marketing blurbs** (mains) and **add-on prices**
-from the live menu. Add-on blurbs are still hit-or-miss (their cards render
-differently) — mains are reliable.
+**Two menus in flight (`ThisWeek` split toggle).** The Clean Eatz cycle: a menu
+drops Tuesday, order window Tue–Sun, pickup Sun–Tue, eaten the following week.
+`week_of` is stored as the **Monday of the week the menu is eaten** (`isodow = 1`
+check unchanged). `src/lib/week.js` → `menuWeeks()` returns `{ thisWeek, nextWeek }`
+(nextWeek = thisWeek + 7). The "This Week" screen is a two-segment control:
+- **Next week** (default) → `nextWeek`, `WeekMenu mode="order"` — picks, EP/LC,
+  before-tax total. Falls back to the provider snapshot + "Use this menu".
+- **This week** → `thisWeek`, `WeekMenu mode="rate"` — flat list, inline star per
+  card writing straight to `ratings` (no pick/price UI). "Previous weeks →" link
+  lives only on this tab.
 
 ---
 

@@ -11,18 +11,18 @@ import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 const CAFE = { state: 'Tennessee', cafe: 'Murfreesboro' }
 const MENU_URL = 'https://cleaneatz.com/healthy-meal-plans'
 
-const TOKEN = required('CE_IMPORT_TOKEN')
-const SUPABASE_URL = required('SUPABASE_URL')
-const ANON = required('SUPABASE_ANON_KEY')
-
 function required(name) {
   const v = process.env[name]
-  if (!v) {
+  if (!v && !process.env.DRY_RUN) {
     console.error(`Missing env ${name}`)
     process.exit(1)
   }
   return v
 }
+
+const TOKEN = required('CE_IMPORT_TOKEN')
+const SUPABASE_URL = required('SUPABASE_URL')
+const ANON = required('SUPABASE_ANON_KEY')
 
 const norm = (s) =>
   s
@@ -166,20 +166,25 @@ try {
       let card = img.parentElement
       for (
         let k = 0;
-        k < 8 && card && !/(CALORIES:|\bCALS?\s|\bFAT\b)/i.test(card.innerText || '');
+        k < 8 &&
+        card &&
+        !/(CALORIES:|\bCALS?\s|\bFAT\b|\beach\b|FLAVOR|QUANTITY)/i.test(
+          card.innerText || '',
+        );
         k++
       )
         card = card.parentElement
       const text = (card?.innerText || '').replace(/\r/g, '')
       const name = img.alt
-      const priceM = text.match(/\$\s?(\d+)\.(\d{2})\s*(?:each|\/)/i)
-      const price_cents = priceM ? +priceM[1] * 100 + +priceM[2] : null
-      let desc = text
+      const lines = text
         .split('\n')
         .map((l) => l.trim())
+        .filter(Boolean)
+      const priceM = text.match(/\$\s?(\d+)\.(\d{2})\s*(?:each|\/)/i)
+      const price_cents = priceM ? +priceM[1] * 100 + +priceM[2] : null
+      const desc = lines
         .filter(
           (l) =>
-            l &&
             !/^\$/.test(l) &&
             !/each$/i.test(l) &&
             !/CALORIES:|^CALS?\b|\bFAT\b.*\bPROT/i.test(l) &&
@@ -196,6 +201,7 @@ try {
         photo: img.currentSrc || img.src,
         price_cents,
         description: desc || null,
+        lines,
       })
     }
     const links = [...document.querySelectorAll('a')]
@@ -237,19 +243,30 @@ try {
 
   const pdfBuf = new Uint8Array(await (await fetch(pdfUrl)).arrayBuffer())
   const parsed = parseMatrix(await pdfLines(pdfBuf))
-  console.log(`week_of ${weekOf} — ${parsed.length} meals from matrix`)
+  console.log(`week_of ${weekOf} — ${parsed.length} rows from matrix`)
 
-  const meals = parsed.map((p) => {
-    const card = matchCard(p.name)
+  // Every matrix row's macros, keyed by normalized name — used to enrich both
+  // mains and any add-on flavor the matrix happens to list.
+  const matrixByNorm = {}
+  for (const p of parsed) {
     const vars = {}
-    for (const [label, mac] of Object.entries(p.vars)) {
-      if (mac.join() !== p.std.join()) vars[label] = mac // skip if == Standard
-    }
+    for (const [label, mac] of Object.entries(p.vars))
+      if (mac.join() !== p.std.join()) vars[label] = mac
+    matrixByNorm[norm(p.name)] = { std: p.std, vars }
+  }
+
+  // The matrix carries a *static* add-on block that Clean Eatz never updates;
+  // the live cards are authoritative for add-on identity, so drop those rows here.
+  const ADDON_RE = /\b(pb ?& ?j|empanada|sammiez|buckeye|energy bite|overnight oat)/i
+  const mains = parsed.filter((p) => !ADDON_RE.test(p.name))
+
+  const mainMeals = mains.map((p) => {
+    const card = matchCard(p.name)
+    const { std, vars } = matrixByNorm[norm(p.name)] ?? { std: p.std, vars: {} }
     let blurb = card?.description ?? null
     if (blurb) {
       // strip a leading ALL-CAPS run (Clean Eatz renders the name as a heading)
       blurb = blurb.replace(/^[A-Z0-9&'./:\- ]{4,}?(?=[A-Z][a-z])/, '').trim()
-      // drop it entirely if what's left is basically just the name
       const residue = norm(blurb).replace(new RegExp(norm(p.name), 'g'), '').trim()
       if (blurb.length < 25 || residue.length < 8) blurb = null
     }
@@ -259,17 +276,99 @@ try {
       description: blurb ?? p.description ?? null,
       image_url: card?.photo ?? null,
       price_cents: card?.price_cents ?? null,
-      std: p.std,
+      std,
       vars,
     }
+  })
+
+  // ---------- add-ons: one meal per live flavor ----------
+  // keyed by the normalized image alt (a category slug on the live site)
+  const ADDON_CATS = {
+    'protein pbj sandwiches': { suffix: 'PB&J', tag: 'add-on' },
+    empanadas: { suffix: 'Empanada', tag: 'add-on' },
+    'overnight oatz': { suffix: 'Overnight Oatz', tag: 'breakfast' },
+    'breakfast sammiez': { suffix: 'Breakfast Sammiez', tag: 'breakfast' },
+    'dark chocolate peanut butter buckeyes': {
+      single: 'Dark Chocolate Peanut Butter Buckeyes',
+      tag: 'add-on',
+    },
+    'energy bites': { single: 'Energy Bites', tag: 'add-on' },
+  }
+
+  function parseAddonCard(card) {
+    const L = card.lines
+    const idx = (re) => L.findIndex((l) => re.test(l))
+    const priceIdx = idx(/\$\s?\d/)
+    const flavorIdx = idx(/^FLAVOR$/i)
+    const qtyIdx = idx(/^QUANTITY$/i)
+    const end = flavorIdx >= 0 ? flavorIdx : qtyIdx >= 0 ? qtyIdx : L.length
+    const blurb = L.slice(priceIdx + 1, end)
+      .filter(
+        (l) =>
+          !/^(CAL|CALS|CALORIES)\b/i.test(l) &&
+          !/\(PER /i.test(l) &&
+          !/^HIGH PROTEIN$/i.test(l),
+      )
+      .join(' ')
+      .replace(/\s*(CAL|CALS)\s*\d.*$/i, '')
+      .trim()
+    const flavors =
+      qtyIdx >= 0
+        ? L.slice(qtyIdx + 1).filter(
+            (l) =>
+              l.length >= 2 &&
+              l.length <= 40 &&
+              !/^\$/.test(l) &&
+              !/^(ADD TO|SELECT|CHOOSE|QUANTITY)/i.test(l),
+          )
+        : []
+    return { blurb: blurb || null, flavors }
+  }
+
+  const addonMeals = []
+  for (const card of cards) {
+    const cat = ADDON_CATS[norm(card.name)]
+    if (!cat) continue
+    const { blurb, flavors } = parseAddonCard(card)
+    const names = cat.single
+      ? [cat.single]
+      : flavors.map((f) => `${f} ${cat.suffix}`)
+    for (const nm of names) {
+      const mx = matrixByNorm[norm(nm)]
+      addonMeals.push({
+        name: nm,
+        tags: inferTags(nm, cat.tag),
+        description: blurb,
+        image_url: card.photo,
+        price_cents: card.price_cents,
+        std: mx?.std ?? [],
+        vars: mx?.vars ?? {},
+      })
+    }
+  }
+
+  const seen = new Set()
+  const meals = [...mainMeals, ...addonMeals].filter((m) => {
+    const k = norm(m.name)
+    if (!k || seen.has(k)) return false
+    seen.add(k)
+    return true
   })
 
   const withPhoto = meals.filter((m) => m.image_url).length
   const withBlurb = meals.filter((m) => m.description).length
   const withPrice = meals.filter((m) => m.price_cents != null).length
   console.log(
-    `${withPhoto}/${meals.length} photos · ${withBlurb} blurbs · ${withPrice} priced`,
+    `${mainMeals.length} mains · ${addonMeals.length} add-on flavors · ` +
+      `${withPhoto} photos · ${withBlurb} blurbs · ${withPrice} priced`,
   )
+
+  if (process.env.DRY_RUN) {
+    console.log(JSON.stringify({ week_of: weekOf, meals }, null, 2))
+    console.log('DRY_RUN — not posting')
+    await browser.close()
+    process.exit(0)
+  }
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/import_weekly_menu`, {
     method: 'POST',
