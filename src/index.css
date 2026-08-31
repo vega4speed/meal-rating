@@ -1,16 +1,19 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg: #161d2e;
-  --color-surface: #1b2438;
-  --color-surface-2: #2a3448;
+  --color-bg: #1a2233;
+  --color-surface: #222c40;
+  --color-surface-2: #313d56;
 
-  /* Lift the darkest slate steps a notch — the app reads as soft dark navy
-     rather than near-black. Text steps (100–600) keep Tailwind's defaults. */
-  --color-slate-950: #121a2b;
-  --color-slate-900: #1b2438;
-  --color-slate-800: #2a3448;
-  --color-slate-700: #3a4761;
+  /* Lift the app off near-black to a soft dark navy. Backgrounds move up a
+     couple of steps; the two darkest text tones move with them so secondary
+     copy stays legible on the lighter ground. 100–400 keep Tailwind defaults. */
+  --color-slate-950: #161d2d;
+  --color-slate-900: #222c40;
+  --color-slate-800: #313d56;
+  --color-slate-700: #46536e;
+  --color-slate-600: #5a6a84;
+  --color-slate-500: #7a889f;
 }
 
 :root {
@@ -30,7 +33,7 @@ body,
 
 body {
   margin: 0;
-  background-color: #161d2e;
+  background-color: #1a2233;
   color: #e6ebf3;
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

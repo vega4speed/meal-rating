@@ -1,6 +1,7 @@
 import { useAuth } from '../lib/auth.jsx'
 import { Button, Card } from '../components/ui.jsx'
 import BackLink from '../components/BackLink.jsx'
+import { BUILD_LABEL } from '../lib/version.js'
 
 function Row({ label, value }) {
   return (
@@ -30,6 +31,10 @@ export default function Profile() {
 
       <p className="text-xs text-slate-600">
         Editing your handle and display name comes later.
+      </p>
+
+      <p className="pt-2 text-center text-[11px] text-slate-600">
+        build {BUILD_LABEL}
       </p>
     </div>
   )
