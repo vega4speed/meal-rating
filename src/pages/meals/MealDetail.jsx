@@ -145,7 +145,7 @@ export default function MealDetail() {
 
   return (
     <div className="flex flex-col gap-5">
-      <BackLink to="/meals">Meals</BackLink>
+      <BackLink to={-1} fallback="/meals">Back</BackLink>
 
       {meal.image_url ? (
         <img
