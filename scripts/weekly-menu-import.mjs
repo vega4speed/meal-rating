@@ -283,16 +283,17 @@ try {
 
   // ---------- add-ons: one meal per live flavor ----------
   // keyed by the normalized image alt (a category slug on the live site)
+  // keyed by normalized image alt; every add-on flavor carries the 'add-on' tag
+  // (inferTags layers on beef/chicken/breakfast/etc. from the flavor name)
   const ADDON_CATS = {
-    'protein pbj sandwiches': { suffix: 'PB&J', tag: 'add-on' },
-    empanadas: { suffix: 'Empanada', tag: 'add-on' },
-    'overnight oatz': { suffix: 'Overnight Oatz', tag: 'breakfast' },
-    'breakfast sammiez': { suffix: 'Breakfast Sammiez', tag: 'breakfast' },
+    'protein pbj sandwiches': { suffix: 'PB&J' },
+    empanadas: { suffix: 'Empanada' },
+    'overnight oatz': { suffix: 'Overnight Oatz' },
+    'breakfast sammiez': { suffix: 'Breakfast Sammiez' },
     'dark chocolate peanut butter buckeyes': {
       single: 'Dark Chocolate Peanut Butter Buckeyes',
-      tag: 'add-on',
     },
-    'energy bites': { single: 'Energy Bites', tag: 'add-on' },
+    'energy bites': { single: 'Energy Bites' },
   }
 
   function parseAddonCard(card) {
@@ -337,7 +338,7 @@ try {
       const mx = matrixByNorm[norm(nm)]
       addonMeals.push({
         name: nm,
-        tags: inferTags(nm, cat.tag),
+        tags: [...new Set(['add-on', ...inferTags(nm, null)])],
         description: blurb,
         image_url: card.photo,
         price_cents: card.price_cents,
