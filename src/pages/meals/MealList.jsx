@@ -15,6 +15,7 @@ const SORTS = [
 ]
 
 const fmt1 = (x) => Number(x).toFixed(1)
+const cx = (...xs) => xs.filter(Boolean).join(' ')
 
 export default function MealList() {
   const { user } = useAuth()
@@ -22,8 +23,10 @@ export default function MealList() {
   const [q, setQ] = useState('')
   const [tag, setTag] = useState(null)
   const [sort, setSort] = useState('name')
-  const [pickedNotRated, setPickedNotRated] = useState(false)
-  const [multiMenu, setMultiMenu] = useState(false)
+  // tri-state filters: 1 = only these · 0 = off · -1 = exclude these
+  const [fMultiMenu, setFMultiMenu] = useState(0)
+  const [fPicked, setFPicked] = useState(0)
+  const [fAddon, setFAddon] = useState(0)
   const [seenDays, setSeenDays] = useState(0)
   const [meals, setMeals] = useState([])
   const [hh, setHh] = useState({})
@@ -91,9 +94,14 @@ export default function MealList() {
 
   const sorted = useMemo(() => {
     let rows = [...meals]
-    if (pickedNotRated)
-      rows = rows.filter((m) => picked.has(m.id) && mine[m.id] == null)
-    if (multiMenu) rows = rows.filter((m) => (m.menu_appearances ?? 0) >= 2)
+    const keep = (state, pred) =>
+      state === 0 || (state === 1 ? pred : !pred)
+    rows = rows.filter(
+      (m) =>
+        keep(fPicked, picked.has(m.id) && mine[m.id] == null) &&
+        keep(fMultiMenu, (m.menu_appearances ?? 0) >= 2) &&
+        keep(fAddon, (m.tags ?? []).includes('add-on')),
+    )
     if (seenDays) {
       const cutoff = new Date()
       cutoff.setDate(cutoff.getDate() - seenDays)
@@ -115,7 +123,7 @@ export default function MealList() {
       )
     else rows.sort((a, b) => a.name.localeCompare(b.name))
     return rows
-  }, [meals, sort, hh, mine, picked, pickedNotRated, multiMenu, seenDays])
+  }, [meals, sort, hh, mine, picked, fPicked, fMultiMenu, fAddon, seenDays])
 
   return (
     <div className="flex flex-col gap-4">
@@ -164,24 +172,50 @@ export default function MealList() {
         </label>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         {[
-          ['2+ menus', multiMenu, () => setMultiMenu((v) => !v)],
-          ['Picked, unrated', pickedNotRated, () => setPickedNotRated((v) => !v)],
-        ].map(([label, on, toggle]) => (
+          ['2+ menus', fMultiMenu, setFMultiMenu],
+          ['Picked, unrated', fPicked, setFPicked],
+          ['Add-ons', fAddon, setFAddon],
+        ].map(([label, state, setState]) => (
           <button
             key={label}
             type="button"
-            aria-pressed={on}
-            onClick={toggle}
-            className={[
+            aria-pressed={state !== 0}
+            title={
+              state === 1
+                ? `Only: ${label}`
+                : state === -1
+                  ? `Hide: ${label}`
+                  : label
+            }
+            onClick={() => setState((s) => (s === 0 ? 1 : s === 1 ? -1 : 0))}
+            className={cx(
               'rounded-full px-2.5 py-1 font-medium transition-colors',
-              on ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400',
-            ].join(' ')}
+              state === 1 && 'bg-emerald-500 text-slate-950',
+              state === 0 && 'bg-slate-800 text-slate-400',
+              state === -1 &&
+                'filter-slash bg-slate-800 text-slate-300 ring-1 ring-inset ring-slate-400',
+            )}
           >
             {label}
           </button>
         ))}
+        {fMultiMenu || fPicked || fAddon || tag || seenDays ? (
+          <button
+            type="button"
+            onClick={() => {
+              setFMultiMenu(0)
+              setFPicked(0)
+              setFAddon(0)
+              setTag(null)
+              setSeenDays(0)
+            }}
+            className="font-medium text-emerald-400 hover:text-emerald-300"
+          >
+            Reset
+          </button>
+        ) : null}
       </div>
 
       <TagChips

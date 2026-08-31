@@ -62,3 +62,15 @@ a:focus:not(:focus-visible) {
     transform: rotate(360deg);
   }
 }
+
+/* "excluded" state for the tri-state meal filter chips: a hairline diagonal
+   slash across the chip, matching the inset ring weight. */
+.filter-slash {
+  background-image: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    rgb(226 232 240 / 0.85) calc(50% - 1px),
+    rgb(226 232 240 / 0.85) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
