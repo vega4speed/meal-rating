@@ -32,6 +32,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   const [picks, setPicks] = useState({})
   const [loading, setLoading] = useState(true)
   const [busyItem, setBusyItem] = useState(null)
+  const [showOthers, setShowOthers] = useState(false)
 
   const load = useCallback(async () => {
     const menuRes = await supabase
@@ -217,6 +218,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   const totalQty = (id) => (picks[id] ?? []).reduce((s, p) => s + (p.qty ?? 1), 0)
 
   const ranked = [...items].sort((a, b) => {
+    if (rating) return a.position - b.position // menu order when rating
     const av = stats[a.variation_id]?.avg_score ?? -1
     const bv = stats[b.variation_id]?.avg_score ?? -1
     return bv - av || a.position - b.position
@@ -307,7 +309,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
             ) : null}
           </div>
 
-          {!rating && pickers.length ? (
+          {pickers.length ? (
             <div className="text-xs text-emerald-300/80">
               {[
                 myItemPick
@@ -411,7 +413,45 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
           No meals on this menu yet. Tap Edit to add some.
         </p>
       ) : rating ? (
-        <ul className="flex flex-col gap-3">{ranked.map(renderItem)}</ul>
+        <div className="flex flex-col gap-4">
+          {pickedItems.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <SectionHeading>
+                Your picks · {pickedItems.length}
+              </SectionHeading>
+              <ul className="flex flex-col gap-3">
+                {pickedItems.map(renderItem)}
+              </ul>
+            </section>
+          ) : (
+            <p className="text-sm text-slate-500">
+              No picks were logged for this week — expand the menu below to rate
+              what you ate.
+            </p>
+          )}
+
+          {openItems.length > 0 ? (
+            <section className="flex flex-col gap-2">
+              <button
+                type="button"
+                aria-expanded={showOthers}
+                onClick={() => setShowOthers((v) => !v)}
+                className="flex items-center justify-between rounded-xl bg-slate-900 px-3.5 py-2.5 text-sm font-medium text-slate-300"
+              >
+                <span>
+                  {showOthers ? 'Hide' : 'Show'} the rest of the menu ·{' '}
+                  {openItems.length}
+                </span>
+                <span className="text-slate-500">{showOthers ? '▲' : '▾'}</span>
+              </button>
+              {showOthers ? (
+                <ul className="flex flex-col gap-3">
+                  {openItems.map(renderItem)}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+        </div>
       ) : (
         <>
           {pickedItems.length > 0 ? (

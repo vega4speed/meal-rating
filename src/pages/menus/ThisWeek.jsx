@@ -25,23 +25,33 @@ export default function ThisWeek() {
     }
     setView({ status: 'loading' })
 
-    const { data: own } = await supabase
-      .from('weekly_menus')
-      .select('id')
-      .eq('household_id', activeId)
-      .eq('week_of', weekOf)
-      .maybeSingle()
+    const [{ data: own }, { data: snap }] = await Promise.all([
+      supabase
+        .from('weekly_menus')
+        .select('id')
+        .eq('household_id', activeId)
+        .eq('week_of', weekOf)
+        .maybeSingle(),
+      supabase
+        .from('weekly_menus')
+        .select('id')
+        .is('household_id', null)
+        .eq('week_of', weekOf)
+        .maybeSingle(),
+    ])
+
     if (own?.id) {
+      // keep the household's menu in step with the week's Clean Eatz menu
+      if (snap?.id) {
+        await supabase.rpc('sync_menu_from_snapshot', {
+          p_household_id: activeId,
+          p_week_of: weekOf,
+        })
+      }
       setView({ status: 'menu', menuId: own.id })
       return
     }
 
-    const { data: snap } = await supabase
-      .from('weekly_menus')
-      .select('id')
-      .is('household_id', null)
-      .eq('week_of', weekOf)
-      .maybeSingle()
     if (snap?.id) {
       const { data: items } = await supabase
         .from('weekly_menu_items')
