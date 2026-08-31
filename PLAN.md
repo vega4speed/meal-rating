@@ -682,6 +682,14 @@ scrolling.
       they block hotlinking). Shown on the meal detail page, meal list, and Week View.
 - [ ] Empty states, loading skeletons, offline-read caching
 - [ ] iOS Safari + Android Chrome testing, home-screen install check
+- [ ] **Light mode.** Currently dark-only (`color-scheme: dark`); components use
+      hardcoded `slate-*` classes. The dark palette's darkest steps (700–950) are
+      lifted in `src/index.css` so it reads as soft navy, not near-black. A real
+      light theme needs a token pass over ~25 components — not done.
+- [x] **Client auto-update** — no service worker, so `vite.config.js` emits
+      `version.json` with a build id baked into the bundle; `src/lib/version.js`
+      (used in `App`) polls it on load + focus and reloads when a newer deploy is
+      live. Fixes "a deploy never reaches the installed / long-open app."
 - [ ] **Keep-alive:** the weekly menu-import Action (below) doubles as the keep-alive
 - [x] **Weekly menu auto-import** — `.github/workflows/weekly-menu.yml` runs Tuesday
       mornings (`0 8` and `0 11` UTC → ~3am / 6am Central): Playwright scrapes the
