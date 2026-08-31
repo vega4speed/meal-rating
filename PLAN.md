@@ -678,12 +678,25 @@ scrolling.
 
 ### Phase 7 — Polish & Edge Cases
 - [ ] Realtime on `menu_selections` (watch picks land live) and on invites
-- [ ] Meal photos via Supabase Storage
+- [x] Meal photos — hotlinked from `assets.cleaneatz.com` (not Storage; revisit if
+      they block hotlinking). Shown on the meal detail page, meal list, and Week View.
 - [ ] Empty states, loading skeletons, offline-read caching
 - [ ] iOS Safari + Android Chrome testing, home-screen install check
-- [ ] **Keep-alive:** a scheduled GitHub Action pinging the database weekly (see below)
+- [ ] **Keep-alive:** the weekly menu-import Action (below) doubles as the keep-alive
+- [x] **Weekly menu auto-import** — `.github/workflows/weekly-menu.yml` runs Tuesday
+      mornings (`0 10` and `0 15` UTC): Playwright scrapes the live Clean Eatz menu
+      for the Murfreesboro cafe (photos + descriptions) and parses the "This Week"
+      macros-matrix PDF (names + variation macros), then POSTs to the token-gated
+      `meals.import_weekly_menu` RPC. Idempotent — re-runs don't double-count
+      `menu_appearances`. Needs repo secret `CE_IMPORT_TOKEN` = `ce-weekly-import-2026`.
+      Clean Eatz doesn't publish a Tuesday post time; the two runs are best-effort.
 
 **Deliverable:** Stable enough to stop thinking about.
+
+**Week View badges** now: `NEW` = `menu_appearances <= 1` (first time on a Clean Eatz
+menu, per the history backfill), plus `YOUR FAVORITE` / `LOVED` / `SKIP` /
+`NOT IN 6 MONTHS`. Each Week View row also carries a tappable meal thumbnail
+(bottom-right → meal detail).
 
 ---
 

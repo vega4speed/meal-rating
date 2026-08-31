@@ -38,7 +38,7 @@ export default function WeekMenu({ menuId }) {
     const itemRes = await supabase
       .from('weekly_menu_items')
       .select(
-        'id, position, variation_id, meal_variations(id, label, calories, fat_g, protein_g, carbs_g, meal_id, meals(id, name, tags))',
+        'id, position, variation_id, meal_variations(id, label, calories, fat_g, protein_g, carbs_g, meal_id, meals(id, name, tags, image_url, menu_appearances))',
       )
       .eq('menu_id', menuId)
       .order('position', { ascending: true })
@@ -187,6 +187,7 @@ export default function WeekMenu({ menuId }) {
       ratingCount: st?.rating_count ?? 0,
       myScore,
       lastHadWeek: lastHad[v?.meal_id] ?? null,
+      menuAppearances: meal?.menu_appearances ?? null,
     })
     const pickers = picks[it.id] ?? []
     const myItemPick = pickers.find((x) => x.user_id === user.id) ?? null
@@ -198,10 +199,25 @@ export default function WeekMenu({ menuId }) {
         as="li"
         key={it.id}
         className={cx(
-          'flex flex-col gap-2.5 p-3.5',
+          'relative flex flex-col gap-2.5 p-3.5',
           total > 0 && 'border-emerald-500/40 bg-emerald-500/[0.06]',
         )}
       >
+        {meal?.image_url ? (
+          <Link
+            to={`/meals/${meal.id}`}
+            aria-label={`${meal.name} details`}
+            className="absolute bottom-3 right-3 rounded-lg ring-1 ring-slate-700/70"
+          >
+            <img
+              src={meal.image_url}
+              alt=""
+              loading="lazy"
+              className="h-12 w-12 rounded-lg object-cover"
+            />
+          </Link>
+        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -258,7 +274,7 @@ export default function WeekMenu({ menuId }) {
         </div>
 
         {badges.length ? (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 pr-16">
             {badges.map((b) => (
               <Pill key={b.label} tone={b.tone}>
                 {b.label}
@@ -267,7 +283,7 @@ export default function WeekMenu({ menuId }) {
           </div>
         ) : null}
 
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-3 pr-16 text-xs">
           {st ? (
             <span className="font-medium text-amber-400">
               ★ {fmt1(st.avg_score)}
@@ -284,7 +300,7 @@ export default function WeekMenu({ menuId }) {
         </div>
 
         {pickers.length ? (
-          <div className="text-xs text-emerald-300/80">
+          <div className="pr-16 text-xs text-emerald-300/80">
             {[
               myItemPick
                 ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`

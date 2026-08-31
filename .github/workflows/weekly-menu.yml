@@ -1,0 +1,31 @@
+name: Weekly menu import
+
+on:
+  schedule:
+    # Tuesday mornings, US Central (cron is UTC). 10:00 UTC = 4am CST / 5am CDT;
+    # 15:00 UTC = 9am CST / 10am CDT — a second pass in case the menu posts later.
+    - cron: '0 10 * * 2'
+    - cron: '0 15 * * 2'
+  workflow_dispatch:
+
+# Don't let two runs write at once.
+concurrency:
+  group: weekly-menu
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/weekly-menu-import.mjs
+        env:
+          CE_IMPORT_TOKEN: ${{ secrets.CE_IMPORT_TOKEN }}
+          SUPABASE_URL: https://udvyspzljnxjuizbxucp.supabase.co
+          SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}

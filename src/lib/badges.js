@@ -1,7 +1,14 @@
 // Week View badges.
-export function mealBadges({ householdAvg, ratingCount, myScore, lastHadWeek }) {
+export function mealBadges({
+  householdAvg,
+  ratingCount,
+  myScore,
+  lastHadWeek,
+  menuAppearances,
+}) {
   const out = []
-  if (!ratingCount) out.push({ label: 'NEW', tone: 'sky' })
+  if (menuAppearances != null && menuAppearances <= 1)
+    out.push({ label: 'NEW', tone: 'sky' })
   if (myScore === 5) out.push({ label: 'YOUR FAVORITE', tone: 'amber' })
   if (householdAvg != null && householdAvg >= 4.5)
     out.push({ label: 'LOVED', tone: 'emerald' })
