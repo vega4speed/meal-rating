@@ -185,6 +185,9 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
     const v = it.meal_variations
     if (!v?.id) return
     setMine((cur) => ({ ...cur, [v.id]: score }))
+    // rating a meal in the rate view means you had it — mark it picked too
+    const autoPick = !myPick(it.id)
+    if (autoPick) patchMyPick(it.id, 1)
     setBusyItem(it.id)
     await supabase
       .from('ratings')
@@ -192,6 +195,13 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
         { user_id: user.id, variation_id: v.id, score },
         { onConflict: 'user_id,variation_id' },
       )
+    if (autoPick)
+      await supabase
+        .from('menu_selections')
+        .upsert(
+          { menu_item_id: it.id, user_id: user.id, qty: 1 },
+          { onConflict: 'menu_item_id,user_id' },
+        )
     setBusyItem(null)
     load()
   }
@@ -309,10 +319,10 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
             ) : null}
           </div>
 
-          {pickers.length ? (
+          {(rating ? others.length : pickers.length) ? (
             <div className="text-xs text-emerald-300/80">
               {[
-                myItemPick
+                !rating && myItemPick
                   ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`
                   : null,
                 ...others.map(
@@ -327,11 +337,27 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
 
         <div className="flex shrink-0 flex-col items-end gap-2.5">
           {rating ? (
-            <StarRating
-              value={myScore}
-              onRate={(n) => rateMeal(it, n)}
-              size="md"
-            />
+            <>
+              <StarRating
+                value={myScore}
+                onRate={(n) => rateMeal(it, n)}
+                size="md"
+              />
+              <button
+                type="button"
+                disabled={busyItem === it.id}
+                aria-pressed={!!myItemPick}
+                onClick={() => togglePick(it.id)}
+                className={cx(
+                  'rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+                  myItemPick
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'bg-slate-800 text-slate-400',
+                )}
+              >
+                {myItemPick ? '✓ I had this' : 'I had this'}
+              </button>
+            </>
           ) : myItemPick ? (
             <div className="flex items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
               <button
