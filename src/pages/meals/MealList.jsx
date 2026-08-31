@@ -5,7 +5,6 @@ import { useAuth } from '../../lib/auth.jsx'
 import { useHousehold } from '../../lib/household.jsx'
 import { MEAL_TAGS, normalizeMealName } from '../../lib/catalog.js'
 import { Button, Input, Spinner } from '../../components/ui.jsx'
-import TagChips from '../../components/TagChips.jsx'
 
 const SORTS = [
   { key: 'name', label: 'Name' },
@@ -17,17 +16,51 @@ const SORTS = [
 const fmt1 = (x) => Number(x).toFixed(1)
 const cx = (...xs) => xs.filter(Boolean).join(' ')
 
+// tri-state cycle: off (0) -> only these (1) -> exclude these (-1) -> off
+const nextState = (v) => (v === 1 ? -1 : v === -1 ? 0 : 1)
+
+function FilterChip({ label, state = 0, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={state !== 0}
+      title={
+        state === 1 ? `Only: ${label}` : state === -1 ? `Hide: ${label}` : label
+      }
+      className={cx(
+        'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+        state === 1 && 'bg-emerald-500 text-slate-950',
+        state === 0 && 'bg-slate-800 text-slate-400',
+        state === -1 &&
+          'filter-slash bg-slate-800 text-slate-300 ring-1 ring-inset ring-slate-400',
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
 export default function MealList() {
   const { user } = useAuth()
   const { activeId } = useHousehold()
   const [q, setQ] = useState('')
-  const [tag, setTag] = useState(null)
   const [sort, setSort] = useState('name')
   // tri-state filters: 1 = only these · 0 = off · -1 = exclude these
   const [fMultiMenu, setFMultiMenu] = useState(0)
   const [fPicked, setFPicked] = useState(0)
   const [fAddon, setFAddon] = useState(0)
+  const [tagState, setTagState] = useState({}) // tag -> 1 (only) | -1 (exclude)
   const [seenDays, setSeenDays] = useState(0)
+
+  const cycleTag = (t) =>
+    setTagState((cur) => {
+      const n = { ...cur }
+      const v = nextState(cur[t] ?? 0)
+      if (v === 0) delete n[t]
+      else n[t] = v
+      return n
+    })
   const [meals, setMeals] = useState([])
   const [hh, setHh] = useState({})
   const [mine, setMine] = useState({})
@@ -48,7 +81,6 @@ export default function MealList() {
         .limit(400)
       const term = normalizeMealName(q)
       if (term) query = query.ilike('normalized_name', `%${term}%`)
-      if (tag) query = query.contains('tags', [tag])
 
       const [mealRes, hhRes, mineRes, pickedRes] = await Promise.all([
         query,
@@ -90,18 +122,26 @@ export default function MealList() {
       setLoading(false)
     }, 250)
     return () => clearTimeout(debounce.current)
-  }, [q, tag, activeId, user.id])
+  }, [q, activeId, user.id])
 
   const sorted = useMemo(() => {
     let rows = [...meals]
     const keep = (state, pred) =>
       state === 0 || (state === 1 ? pred : !pred)
-    rows = rows.filter(
-      (m) =>
+    const incTags = []
+    const excTags = []
+    for (const [k, v] of Object.entries(tagState))
+      (v === 1 ? incTags : excTags).push(k)
+    rows = rows.filter((m) => {
+      const mt = m.tags ?? []
+      if (incTags.length && !incTags.some((x) => mt.includes(x))) return false
+      if (excTags.some((x) => mt.includes(x))) return false
+      return (
         keep(fPicked, picked.has(m.id) && mine[m.id] == null) &&
         keep(fMultiMenu, (m.menu_appearances ?? 0) >= 2) &&
-        keep(fAddon, (m.tags ?? []).includes('add-on')),
-    )
+        keep(fAddon, mt.includes('add-on'))
+      )
+    })
     if (seenDays) {
       const cutoff = new Date()
       cutoff.setDate(cutoff.getDate() - seenDays)
@@ -123,7 +163,33 @@ export default function MealList() {
       )
     else rows.sort((a, b) => a.name.localeCompare(b.name))
     return rows
-  }, [meals, sort, hh, mine, picked, fPicked, fMultiMenu, fAddon, seenDays])
+  }, [
+    meals,
+    sort,
+    hh,
+    mine,
+    picked,
+    fPicked,
+    fMultiMenu,
+    fAddon,
+    tagState,
+    seenDays,
+  ])
+
+  const anyFilter =
+    fMultiMenu ||
+    fPicked ||
+    fAddon ||
+    seenDays ||
+    Object.keys(tagState).length > 0
+
+  function resetFilters() {
+    setFMultiMenu(0)
+    setFPicked(0)
+    setFAddon(0)
+    setTagState({})
+    setSeenDays(0)
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -172,58 +238,46 @@ export default function MealList() {
         </label>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
         {[
           ['2+ menus', fMultiMenu, setFMultiMenu],
           ['Picked, unrated', fPicked, setFPicked],
           ['Add-ons', fAddon, setFAddon],
         ].map(([label, state, setState]) => (
-          <button
+          <FilterChip
             key={label}
-            type="button"
-            aria-pressed={state !== 0}
-            title={
-              state === 1
-                ? `Only: ${label}`
-                : state === -1
-                  ? `Hide: ${label}`
-                  : label
-            }
-            onClick={() => setState((s) => (s === 0 ? 1 : s === 1 ? -1 : 0))}
-            className={cx(
-              'rounded-full px-2.5 py-1 font-medium transition-colors',
-              state === 1 && 'bg-emerald-500 text-slate-950',
-              state === 0 && 'bg-slate-800 text-slate-400',
-              state === -1 &&
-                'filter-slash bg-slate-800 text-slate-300 ring-1 ring-inset ring-slate-400',
-            )}
-          >
-            {label}
-          </button>
+            label={label}
+            state={state}
+            onClick={() => setState(nextState)}
+          />
         ))}
-        {fMultiMenu || fPicked || fAddon || tag || seenDays ? (
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {MEAL_TAGS.map((t) => (
+          <FilterChip
+            key={t}
+            label={t}
+            state={tagState[t] ?? 0}
+            onClick={() => cycleTag(t)}
+          />
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>
+          {sorted.length} {sorted.length === 1 ? 'meal' : 'meals'}
+        </span>
+        {anyFilter ? (
           <button
             type="button"
-            onClick={() => {
-              setFMultiMenu(0)
-              setFPicked(0)
-              setFAddon(0)
-              setTag(null)
-              setSeenDays(0)
-            }}
+            onClick={resetFilters}
             className="font-medium text-emerald-400 hover:text-emerald-300"
           >
             Reset
           </button>
         ) : null}
       </div>
-
-      <TagChips
-        options={MEAL_TAGS}
-        selected={tag}
-        single
-        onToggle={(t) => setTag((cur) => (cur === t ? null : t))}
-      />
 
       {loading ? (
         <Spinner />
