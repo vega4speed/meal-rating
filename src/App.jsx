@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
+import { useVersionCheck } from './lib/version.js'
 import { HouseholdProvider, useHousehold } from './lib/household.jsx'
 import { Spinner } from './components/ui.jsx'
 import BottomNav from './components/BottomNav.jsx'
@@ -124,6 +125,7 @@ function Gate() {
 }
 
 export default function App() {
+  useVersionCheck()
   return (
     <AuthProvider>
       <Gate />
