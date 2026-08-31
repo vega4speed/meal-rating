@@ -40,7 +40,7 @@ export default function MealDetail() {
       supabase
         .from('meals')
         .select(
-          'id, name, description, tags, created_by, created_at, providers(name)',
+          'id, name, description, tags, image_url, created_by, created_at, providers(name)',
         )
         .eq('id', id)
         .maybeSingle(),
@@ -146,6 +146,16 @@ export default function MealDetail() {
   return (
     <div className="flex flex-col gap-5">
       <BackLink to="/meals">Meals</BackLink>
+
+      {meal.image_url ? (
+        <img
+          src={meal.image_url}
+          alt={meal.name}
+          loading="lazy"
+          className="aspect-[4/3] w-full rounded-2xl object-cover"
+        />
+      ) : null}
+
       <div>
         <h1 className="text-xl font-semibold text-slate-100">{meal.name}</h1>
         <p className="mt-1 text-xs text-slate-500">{meal.providers?.name}</p>

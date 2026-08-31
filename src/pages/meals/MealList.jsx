@@ -36,7 +36,7 @@ export default function MealList() {
     debounce.current = setTimeout(async () => {
       let query = supabase
         .from('meals')
-        .select('id, name, tags, providers(name)')
+        .select('id, name, tags, image_url, providers(name)')
         .limit(300)
       const term = normalizeMealName(q)
       if (term) query = query.ilike('normalized_name', `%${term}%`)
@@ -170,9 +170,19 @@ export default function MealList() {
               <li key={m.id}>
                 <Link
                   to={`/meals/${m.id}`}
-                  className="flex items-center justify-between gap-3 py-3"
+                  className="flex items-center gap-3 py-3"
                 >
-                  <div className="min-w-0">
+                  {m.image_url ? (
+                    <img
+                      src={m.image_url}
+                      alt=""
+                      loading="lazy"
+                      className="h-11 w-11 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 shrink-0 rounded-lg bg-slate-800" />
+                  )}
+                  <div className="min-w-0 flex-1">
                     <div className="truncate text-slate-100">{m.name}</div>
                     {m.tags?.length ? (
                       <div className="mt-0.5 truncate text-xs text-slate-500">
