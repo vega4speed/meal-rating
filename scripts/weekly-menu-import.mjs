@@ -141,7 +141,20 @@ try {
   await page.waitForTimeout(1500)
   await page.selectOption('select[name="cafe"]', { label: CAFE.cafe })
   await page.waitForSelector('img[src*="meal-photos"]', { timeout: 25000 })
+
+  // Scroll through the page so every lazy-loaded meal photo (incl. add-ons) mounts.
+  for (let y = 0; y < 12; y++) {
+    await page.evaluate((n) => window.scrollTo(0, (n + 1) * window.innerHeight), y)
+    await page.waitForTimeout(400)
+  }
   await page.waitForTimeout(1500)
+  const photoCount = await page.evaluate(
+    () =>
+      [...document.querySelectorAll('img')].filter((i) =>
+        /meal-photos/.test(i.currentSrc || i.src),
+      ).length,
+  )
+  console.log(`${photoCount} meal photos in DOM`)
 
   const { cards, pdfUrl, nearest } = await page.evaluate(() => {
     const cards = []
@@ -232,11 +245,13 @@ try {
     for (const [label, mac] of Object.entries(p.vars)) {
       if (mac.join() !== p.std.join()) vars[label] = mac // skip if == Standard
     }
-    // Drop a "blurb" that's really just the meal name repeated.
     let blurb = card?.description ?? null
-    if (blurb && (blurb.length < 70 || jaccard(blurb, p.name) > 0.75)) {
-      if (norm(blurb).replace(new RegExp(norm(p.name), 'g'), '').trim().length < 8)
-        blurb = null
+    if (blurb) {
+      // strip a leading ALL-CAPS run (Clean Eatz renders the name as a heading)
+      blurb = blurb.replace(/^[A-Z0-9&'./:\- ]{4,}?(?=[A-Z][a-z])/, '').trim()
+      // drop it entirely if what's left is basically just the name
+      const residue = norm(blurb).replace(new RegExp(norm(p.name), 'g'), '').trim()
+      if (blurb.length < 25 || residue.length < 8) blurb = null
     }
     return {
       name: p.name,
