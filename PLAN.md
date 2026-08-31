@@ -695,8 +695,23 @@ scrolling.
 
 **Week View badges** now: `NEW` = `menu_appearances <= 1` (first time on a Clean Eatz
 menu, per the history backfill), plus `YOUR FAVORITE` / `LOVED` / `SKIP` /
-`NOT IN 6 MONTHS`. Each Week View row also carries a tappable meal thumbnail
-(bottom-right → meal detail).
+`NOT IN 6 MONTHS`. Each Week View row carries a tappable meal thumbnail in the
+right column (below the pick control — stacked, never overlapping).
+
+**Order planning (Week View → Picked section).** `meals.price_cents` holds the fixed
+per-item price for add-ons / premiums / salads (NULL = a tier-priced main).
+`weekly_menus.order_extra_protein` / `order_low_carb` are the household's per-week
+order-level special request. The Picked section shows Extra Protein / Low Carb
+toggles and a **before-tax subtotal**: `tierPrice(mainCount) × mainCount + $1.75
+× mainCount (if EP) + Σ add-on prices`. Tiers + surcharge live in
+`src/lib/pricing.js`. Toggling EP/LC also flips the displayed variation macros for
+each picked meal. No per-week versioning of macros/blurbs/photos/price — one current
+record per meal, refreshed from the latest menu appearance; broken image links fall
+back to a placeholder client-side.
+
+The weekly importer also pulls **marketing blurbs** (mains) and **add-on prices**
+from the live menu. Add-on blurbs are still hit-or-miss (their cards render
+differently) — mains are reliable.
 
 ---
 
