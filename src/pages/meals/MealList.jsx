@@ -19,6 +19,16 @@ const cx = (...xs) => xs.filter(Boolean).join(' ')
 // tri-state cycle: off (0) -> only these (1) -> exclude these (-1) -> off
 const nextState = (v) => (v === 1 ? -1 : v === -1 ? 0 : 1)
 
+// Keep the list's search + filters through a tap into a meal and back.
+const FILTERS_KEY = 'meal-list-filters'
+const loadFilters = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(FILTERS_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
+
 function FilterChip({ label, state = 0, onClick }) {
   return (
     <button
@@ -44,14 +54,34 @@ function FilterChip({ label, state = 0, onClick }) {
 export default function MealList() {
   const { user } = useAuth()
   const { activeId } = useHousehold()
-  const [q, setQ] = useState('')
-  const [sort, setSort] = useState('name')
+  const saved = useRef(loadFilters()).current
+  const [q, setQ] = useState(saved.q ?? '')
+  const [sort, setSort] = useState(saved.sort ?? 'name')
   // tri-state filters: 1 = only these · 0 = off · -1 = exclude these
-  const [fMultiMenu, setFMultiMenu] = useState(0)
-  const [fPicked, setFPicked] = useState(0)
-  const [fAddon, setFAddon] = useState(0)
-  const [tagState, setTagState] = useState({}) // tag -> 1 (only) | -1 (exclude)
-  const [seenDays, setSeenDays] = useState(0)
+  const [fMultiMenu, setFMultiMenu] = useState(saved.fMultiMenu ?? 0)
+  const [fPicked, setFPicked] = useState(saved.fPicked ?? 0)
+  const [fAddon, setFAddon] = useState(saved.fAddon ?? 0)
+  const [tagState, setTagState] = useState(saved.tagState ?? {}) // tag -> 1 | -1
+  const [seenDays, setSeenDays] = useState(saved.seenDays ?? 0)
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        FILTERS_KEY,
+        JSON.stringify({
+          q,
+          sort,
+          fMultiMenu,
+          fPicked,
+          fAddon,
+          tagState,
+          seenDays,
+        }),
+      )
+    } catch {
+      /* storage unavailable — filters just won't persist */
+    }
+  }, [q, sort, fMultiMenu, fPicked, fAddon, tagState, seenDays])
 
   const cycleTag = (t) =>
     setTagState((cur) => {
