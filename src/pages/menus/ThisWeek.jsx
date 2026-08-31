@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useHousehold } from '../../lib/household.jsx'
@@ -12,13 +12,51 @@ export default function ThisWeek() {
   const nav = useNavigate()
   const { activeId, activeHousehold, loading: hhLoading } = useHousehold()
   const { thisWeek, nextWeek } = menuWeeks()
-  const [tab, setTab] = useState('next') // 'next' = order · 'this' = rate
+  // 'next' = order (Tue–Sun window) · 'this' = rate. null until the default is
+  // resolved: default to Next week only once it has a menu/snapshot (i.e. from
+  // Tuesday's drop through Sunday); before that — Monday — default to This week.
+  const [tab, setTab] = useState(null)
+  const userPicked = useRef(false)
+  const pickTab = (t) => {
+    userPicked.current = true
+    setTab(t)
+  }
   const weekOf = tab === 'next' ? nextWeek : thisWeek
 
   const [view, setView] = useState({ status: 'loading' })
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    if (userPicked.current) return
+    if (!activeId) {
+      setTab('this')
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const [{ data: own }, { data: snap }] = await Promise.all([
+        supabase
+          .from('weekly_menus')
+          .select('id')
+          .eq('household_id', activeId)
+          .eq('week_of', nextWeek)
+          .maybeSingle(),
+        supabase
+          .from('weekly_menus')
+          .select('id')
+          .is('household_id', null)
+          .eq('week_of', nextWeek)
+          .maybeSingle(),
+      ])
+      if (!cancelled) setTab(own?.id || snap?.id ? 'next' : 'this')
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [activeId, nextWeek])
+
   const load = useCallback(async () => {
+    if (!tab) return
     if (!activeId) {
       setView({ status: 'nohousehold' })
       return
@@ -67,7 +105,7 @@ export default function ThisWeek() {
       return
     }
     setView({ status: 'empty' })
-  }, [activeId, weekOf])
+  }, [activeId, weekOf, tab])
 
   useEffect(() => {
     load()
@@ -93,7 +131,7 @@ export default function ThisWeek() {
     if (!error && data?.id) nav(`/menus/${data.id}/edit`)
   }
 
-  if (hhLoading) return <Spinner />
+  if (hhLoading || (activeId && tab === null)) return <Spinner />
 
   if (!activeId) {
     return (
@@ -125,7 +163,7 @@ export default function ThisWeek() {
               key={t.key}
               type="button"
               aria-pressed={tab === t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => pickTab(t.key)}
               className={cx(
                 'flex flex-col items-center rounded-xl px-3 py-2 transition-colors',
                 tab === t.key

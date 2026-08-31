@@ -729,9 +729,16 @@ check unchanged). `src/lib/week.js` → `menuWeeks()` returns `{ thisWeek, nextW
 (nextWeek = thisWeek + 7). The "This Week" screen is a two-segment control:
 - **Next week** (default) → `nextWeek`, `WeekMenu mode="order"` — picks, EP/LC,
   before-tax total. Falls back to the provider snapshot + "Use this menu".
-- **This week** → `thisWeek`, `WeekMenu mode="rate"` — flat list, inline star per
-  card writing straight to `ratings` (no pick/price UI). "Previous weeks →" link
-  lives only on this tab.
+- **This week** → `thisWeek`, `WeekMenu mode="rate"` — picked meals on top with an
+  inline star per card (writes straight to `ratings`), the rest of the menu
+  collapsed under a toggle. No pick/price UI. "Previous weeks →" link only here.
+
+The screen **defaults to Next week only once it has a menu or snapshot** — i.e.
+from Tuesday's drop through Sunday's order deadline. On Monday, before the new
+menu posts, Next week is empty and the screen opens on This week (the menu the
+household is now picking up). The week math rolls over at Monday 00:00 local, so
+the menu that was "Next week" all through its order window becomes "This week"
+automatically.
 
 ---
 
