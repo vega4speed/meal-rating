@@ -30,6 +30,15 @@ const norm = (s) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
+const tokenSet = (s) => new Set(norm(s).split(' ').filter(Boolean))
+function jaccard(a, b) {
+  const A = tokenSet(a)
+  const B = tokenSet(b)
+  if (!A.size || !B.size) return 0
+  const inter = [...A].filter((x) => B.has(x)).length
+  return inter / (A.size + B.size - inter)
+}
+
 // ---------- tag inference (mirrors the historical backfill) ----------
 const TAG_RULES = [
   [/\bbeef|brisket|steak|burger|bison|short rib|pot roast|ragu|salisbury|tri tip|meatball|cheeseburger|burnt end|shepherd\b/i, 'beef'],
@@ -192,11 +201,17 @@ try {
     if (!cardByKey[key]) cardByKey[key] = c
   }
   function matchCard(name) {
-    const key = norm(name)
-    if (cardByKey[key]) return cardByKey[key]
-    for (const [k, c] of Object.entries(cardByKey))
-      if (k.includes(key) || key.includes(k)) return c
-    return null
+    if (cardByKey[norm(name)]) return cardByKey[norm(name)]
+    let best = null
+    let score = 0
+    for (const c of cards) {
+      const s = jaccard(name, c.name)
+      if (s > score) {
+        score = s
+        best = c
+      }
+    }
+    return score >= 0.6 ? best : null
   }
 
   if (!pdfUrl) throw new Error('could not find This Week macros-matrix link')
@@ -217,10 +232,16 @@ try {
     for (const [label, mac] of Object.entries(p.vars)) {
       if (mac.join() !== p.std.join()) vars[label] = mac // skip if == Standard
     }
+    // Drop a "blurb" that's really just the meal name repeated.
+    let blurb = card?.description ?? null
+    if (blurb && (blurb.length < 70 || jaccard(blurb, p.name) > 0.75)) {
+      if (norm(blurb).replace(new RegExp(norm(p.name), 'g'), '').trim().length < 8)
+        blurb = null
+    }
     return {
       name: p.name,
       tags: inferTags(p.name, p.prefixTag),
-      description: card?.description ?? p.description ?? null,
+      description: blurb ?? p.description ?? null,
       image_url: card?.photo ?? null,
       price_cents: card?.price_cents ?? null,
       std: p.std,

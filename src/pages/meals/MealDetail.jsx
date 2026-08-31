@@ -40,7 +40,7 @@ export default function MealDetail() {
       supabase
         .from('meals')
         .select(
-          'id, name, description, tags, image_url, created_by, created_at, providers(name)',
+          'id, name, description, tags, image_url, price_cents, menu_appearances, menu_last_seen, created_by, created_at, providers(name)',
         )
         .eq('id', id)
         .maybeSingle(),
@@ -159,7 +159,13 @@ export default function MealDetail() {
 
       <div>
         <h1 className="text-xl font-semibold text-slate-100">{meal.name}</h1>
-        <p className="mt-1 text-xs text-slate-500">{meal.providers?.name}</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {meal.providers?.name}
+          {meal.price_cents != null
+            ? ` · $${(meal.price_cents / 100).toFixed(2)}`
+            : ''}
+          {meal.menu_appearances >= 2 ? ` · ${meal.menu_appearances} menus` : ''}
+        </p>
       </div>
 
       {meal.description ? (
