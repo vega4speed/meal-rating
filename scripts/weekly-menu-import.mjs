@@ -134,16 +134,47 @@ try {
   await page.waitForSelector('img[src*="meal-photos"]', { timeout: 25000 })
   await page.waitForTimeout(1500)
 
-  const { photos, pdfUrl, nearest } = await page.evaluate(() => {
-    const photos = {}
-    for (const img of document.querySelectorAll('img')) {
-      const src = img.currentSrc || img.src
-      if (!/meal-photos/.test(src) || !img.alt) continue
-      const key = img.alt
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
+  const { cards, pdfUrl, nearest } = await page.evaluate(() => {
+    const cards = []
+    const imgs = [...document.querySelectorAll('img')].filter((i) =>
+      /meal-photos/.test(i.currentSrc || i.src),
+    )
+    for (const img of imgs) {
+      if (!img.alt) continue
+      let card = img.parentElement
+      for (
+        let k = 0;
+        k < 8 && card && !/(CALORIES:|\bCALS?\s|\bFAT\b)/i.test(card.innerText || '');
+        k++
+      )
+        card = card.parentElement
+      const text = (card?.innerText || '').replace(/\r/g, '')
+      const name = img.alt
+      const priceM = text.match(/\$\s?(\d+)\.(\d{2})\s*(?:each|\/)/i)
+      const price_cents = priceM ? +priceM[1] * 100 + +priceM[2] : null
+      let desc = text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(
+          (l) =>
+            l &&
+            !/^\$/.test(l) &&
+            !/each$/i.test(l) &&
+            !/CALORIES:|^CALS?\b|\bFAT\b.*\bPROT/i.test(l) &&
+            !/^(QUANTITY|FLAVOR|HIGH PROTEIN)$/i.test(l) &&
+            !/^REMINDER:/i.test(l) &&
+            l.toUpperCase() !== name.toUpperCase() &&
+            !/^(PREMIUM|SALAD):/i.test(l),
+        )
+        .join(' ')
+        .replace(/\s*CALS?\s*\d.*$/i, '')
         .trim()
-      if (!photos[key]) photos[key] = src
+      cards.push({
+        name,
+        photo: img.currentSrc || img.src,
+        price_cents,
+        description: desc || null,
+      })
     }
     const links = [...document.querySelectorAll('a')]
     const tw =
@@ -152,8 +183,21 @@ try {
     const nearest = document.body.innerText.match(
       /YOUR NEAREST CAFE IS:\s*([^\n]+)/i,
     )?.[1]
-    return { photos, pdfUrl: tw?.href, nearest }
+    return { cards, pdfUrl: tw?.href, nearest }
   })
+
+  const cardByKey = {}
+  for (const c of cards) {
+    const key = norm(c.name)
+    if (!cardByKey[key]) cardByKey[key] = c
+  }
+  function matchCard(name) {
+    const key = norm(name)
+    if (cardByKey[key]) return cardByKey[key]
+    for (const [k, c] of Object.entries(cardByKey))
+      if (k.includes(key) || key.includes(k)) return c
+    return null
+  }
 
   if (!pdfUrl) throw new Error('could not find This Week macros-matrix link')
   console.log('cafe:', nearest)
@@ -168,32 +212,28 @@ try {
   console.log(`week_of ${weekOf} — ${parsed.length} meals from matrix`)
 
   const meals = parsed.map((p) => {
-    const key = norm(p.name)
-    // match a page photo: exact, then contains
-    let photo = photos[key]
-    if (!photo)
-      for (const [k, v] of Object.entries(photos))
-        if (k.includes(key) || key.includes(k)) {
-          photo = v
-          break
-        }
+    const card = matchCard(p.name)
     const vars = {}
     for (const [label, mac] of Object.entries(p.vars)) {
-      // skip a variation identical to Standard
-      if (mac.join() !== p.std.join()) vars[label] = mac
+      if (mac.join() !== p.std.join()) vars[label] = mac // skip if == Standard
     }
     return {
       name: p.name,
       tags: inferTags(p.name, p.prefixTag),
-      description: p.description,
-      image_url: photo || null,
+      description: card?.description ?? p.description ?? null,
+      image_url: card?.photo ?? null,
+      price_cents: card?.price_cents ?? null,
       std: p.std,
       vars,
     }
   })
 
   const withPhoto = meals.filter((m) => m.image_url).length
-  console.log(`${withPhoto}/${meals.length} matched a photo`)
+  const withBlurb = meals.filter((m) => m.description).length
+  const withPrice = meals.filter((m) => m.price_cents != null).length
+  console.log(
+    `${withPhoto}/${meals.length} photos · ${withBlurb} blurbs · ${withPrice} priced`,
+  )
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/import_weekly_menu`, {
     method: 'POST',

@@ -5,27 +5,39 @@ import { useAuth } from '../../lib/auth.jsx'
 import { formatWeekOf } from '../../lib/week.js'
 import { macroLine } from '../../lib/catalog.js'
 import { mealBadges } from '../../lib/badges.js'
+import { orderTotalCents, usd, EXTRA_PROTEIN_CENTS } from '../../lib/pricing.js'
 import { Card, Pill, Spinner, SectionHeading } from '../../components/ui.jsx'
 import StarRating from '../../components/StarRating.jsx'
 
 const fmt1 = (x) => (x == null ? null : Number(x).toFixed(1))
 const cx = (...xs) => xs.filter(Boolean).join(' ')
 
+// The variation label an order-level Extra Protein / Low Carb choice implies.
+function targetLabel(ep, lc) {
+  if (ep && lc) return 'Extra Protein + Low Carb'
+  if (ep) return 'Extra Protein'
+  if (lc) return 'Low Carb'
+  return null
+}
+
 export default function WeekMenu({ menuId }) {
   const { user, profile } = useAuth()
   const [menu, setMenu] = useState(null)
   const [items, setItems] = useState([])
+  const [varsByMeal, setVarsByMeal] = useState({}) // meal_id -> [{label, macros}]
   const [stats, setStats] = useState({})
   const [lastHad, setLastHad] = useState({})
   const [mine, setMine] = useState({})
-  const [picks, setPicks] = useState({}) // item_id -> [{user_id, display_name}]
+  const [picks, setPicks] = useState({})
   const [loading, setLoading] = useState(true)
   const [busyItem, setBusyItem] = useState(null)
 
   const load = useCallback(async () => {
     const menuRes = await supabase
       .from('weekly_menus')
-      .select('id, week_of, status, household_id, published_at')
+      .select(
+        'id, week_of, status, household_id, order_extra_protein, order_low_carb',
+      )
       .eq('id', menuId)
       .maybeSingle()
     const m = menuRes.data
@@ -38,7 +50,7 @@ export default function WeekMenu({ menuId }) {
     const itemRes = await supabase
       .from('weekly_menu_items')
       .select(
-        'id, position, variation_id, meal_variations(id, label, calories, fat_g, protein_g, carbs_g, meal_id, meals(id, name, tags, image_url, menu_appearances))',
+        'id, position, variation_id, meal_variations(id, label, calories, fat_g, protein_g, carbs_g, meal_id, meals(id, name, tags, image_url, menu_appearances, price_cents))',
       )
       .eq('menu_id', menuId)
       .order('position', { ascending: true })
@@ -51,7 +63,7 @@ export default function WeekMenu({ menuId }) {
       ...new Set(its.map((i) => i.meal_variations?.meal_id).filter(Boolean)),
     ]
 
-    const [statRes, mineRes, pickRes, lastRes] = await Promise.all([
+    const [statRes, mineRes, pickRes, lastRes, varRes] = await Promise.all([
       varIds.length
         ? supabase
             .from('v_variation_household_stats')
@@ -79,21 +91,25 @@ export default function WeekMenu({ menuId }) {
             .eq('household_id', m.household_id)
             .in('meal_id', mealIds)
         : Promise.resolve({ data: [] }),
+      mealIds.length
+        ? supabase
+            .from('meal_variations')
+            .select('meal_id, label, calories, fat_g, protein_g, carbs_g')
+            .in('meal_id', mealIds)
+        : Promise.resolve({ data: [] }),
     ])
 
-    setStats(
-      Object.fromEntries(
-        (statRes.data ?? []).map((r) => [r.variation_id, r]),
-      ),
-    )
+    setStats(Object.fromEntries((statRes.data ?? []).map((r) => [r.variation_id, r])))
     setMine(
       Object.fromEntries((mineRes.data ?? []).map((r) => [r.variation_id, r.score])),
     )
     setLastHad(
-      Object.fromEntries(
-        (lastRes.data ?? []).map((r) => [r.meal_id, r.last_week]),
-      ),
+      Object.fromEntries((lastRes.data ?? []).map((r) => [r.meal_id, r.last_week])),
     )
+    const vbm = {}
+    for (const row of varRes.data ?? []) (vbm[row.meal_id] ||= []).push(row)
+    setVarsByMeal(vbm)
+
     const p = {}
     for (const row of pickRes.data ?? []) {
       ;(p[row.menu_item_id] ||= []).push({
@@ -113,16 +129,11 @@ export default function WeekMenu({ menuId }) {
   function myPick(itemId) {
     return (picks[itemId] ?? []).find((x) => x.user_id === user.id) ?? null
   }
-
   function patchMyPick(itemId, qty) {
     setPicks((cur) => {
       const list = (cur[itemId] ?? []).filter((x) => x.user_id !== user.id)
       if (qty > 0)
-        list.push({
-          user_id: user.id,
-          qty,
-          display_name: profile?.display_name ?? 'You',
-        })
+        list.push({ user_id: user.id, qty, display_name: profile?.display_name ?? 'You' })
       return { ...cur, [itemId]: list }
     })
   }
@@ -147,9 +158,9 @@ export default function WeekMenu({ menuId }) {
   }
 
   async function changeQty(itemId, delta) {
-    const mine = myPick(itemId)
-    if (!mine) return
-    const next = mine.qty + delta
+    const mp = myPick(itemId)
+    if (!mp) return
+    const next = mp.qty + delta
     if (next < 1) return togglePick(itemId)
     if (next > 20) return
     patchMyPick(itemId, next)
@@ -163,11 +174,31 @@ export default function WeekMenu({ menuId }) {
     load()
   }
 
+  async function setOrderOpt(patch) {
+    setMenu((cur) => ({ ...cur, ...patch }))
+    await supabase.from('weekly_menus').update(patch).eq('id', menuId)
+  }
+
   if (loading) return <Spinner />
   if (!menu) return <p className="py-8 text-sm text-slate-500">Menu not found.</p>
 
-  const totalQty = (id) =>
-    (picks[id] ?? []).reduce((s, p) => s + (p.qty ?? 1), 0)
+  const ep = menu.order_extra_protein
+  const lc = menu.order_low_carb
+  const wantLabel = targetLabel(ep, lc)
+
+  // Which variation's macros to show for an item, given the order-level choice.
+  function effectiveVar(it) {
+    const base = it.meal_variations
+    if (!wantLabel) return base
+    const alt = (varsByMeal[base?.meal_id] ?? []).find(
+      (x) => x.label === wantLabel,
+    )
+    return alt
+      ? { ...alt, label: alt.label, meals: base.meals, meal_id: base.meal_id }
+      : base
+  }
+
+  const totalQty = (id) => (picks[id] ?? []).reduce((s, p) => s + (p.qty ?? 1), 0)
 
   const ranked = [...items].sort((a, b) => {
     const av = stats[a.variation_id]?.avg_score ?? -1
@@ -177,16 +208,25 @@ export default function WeekMenu({ menuId }) {
   const pickedItems = ranked.filter((it) => totalQty(it.id) > 0)
   const openItems = ranked.filter((it) => totalQty(it.id) === 0)
 
+  const order = orderTotalCents(
+    pickedItems.map((it) => ({
+      price_cents: it.meal_variations?.meals?.price_cents ?? null,
+      qty: totalQty(it.id),
+    })),
+    { extraProtein: ep },
+  )
+  const pickedUnits = pickedItems.reduce((s, it) => s + totalQty(it.id), 0)
+
   function renderItem(it) {
-    const v = it.meal_variations
-    const meal = v?.meals
+    const meal = it.meal_variations?.meals
+    const v = effectiveVar(it)
     const st = stats[it.variation_id]
     const myScore = mine[it.variation_id] ?? null
     const badges = mealBadges({
       householdAvg: st?.avg_score ?? null,
       ratingCount: st?.rating_count ?? 0,
       myScore,
-      lastHadWeek: lastHad[v?.meal_id] ?? null,
+      lastHadWeek: lastHad[meal?.id] ?? null,
       menuAppearances: meal?.menu_appearances ?? null,
     })
     const pickers = picks[it.id] ?? []
@@ -199,49 +239,77 @@ export default function WeekMenu({ menuId }) {
         as="li"
         key={it.id}
         className={cx(
-          'relative flex flex-col gap-2.5 p-3.5',
+          'flex gap-3 p-3.5',
           total > 0 && 'border-emerald-500/40 bg-emerald-500/[0.06]',
         )}
       >
-        {meal?.image_url ? (
-          <Link
-            to={`/meals/${meal.id}`}
-            aria-label={`${meal.name} details`}
-            className="absolute bottom-3 right-3 rounded-lg ring-1 ring-slate-700/70"
-          >
-            <img
-              src={meal.image_url}
-              alt=""
-              loading="lazy"
-              className="h-12 w-12 rounded-lg object-cover"
-            />
-          </Link>
-        ) : null}
-
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              {total > 0 ? (
-                <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500 px-1.5 text-sm font-bold text-slate-950">
-                  {total}
-                </span>
-              ) : null}
-              <Link
-                to={`/meals/${meal?.id}`}
-                className="truncate font-medium text-slate-100"
-              >
-                {meal?.name}
-              </Link>
-            </div>
-            {v?.label && v.label !== 'Standard' ? (
-              <span className="text-xs text-slate-500">{v.label}</span>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex items-center gap-2">
+            {total > 0 ? (
+              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500 px-1.5 text-sm font-bold text-slate-950">
+                {total}
+              </span>
             ) : null}
-            {macroLine(v) ? (
-              <div className="mt-0.5 text-xs text-slate-500">{macroLine(v)}</div>
+            <Link
+              to={`/meals/${meal?.id}`}
+              className="truncate font-medium text-slate-100"
+            >
+              {meal?.name}
+            </Link>
+          </div>
+
+          {v?.label && v.label !== 'Standard' ? (
+            <span className="-mt-1 text-xs text-slate-500">{v.label}</span>
+          ) : null}
+          {macroLine(v) ? (
+            <div className="-mt-1 text-xs text-slate-500">{macroLine(v)}</div>
+          ) : null}
+
+          {badges.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {badges.map((b) => (
+                <Pill key={b.label} tone={b.tone}>
+                  {b.label}
+                </Pill>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-3 text-xs">
+            {st ? (
+              <span className="font-medium text-amber-400">
+                ★ {fmt1(st.avg_score)}
+                <span className="text-slate-500"> · {st.rating_count}</span>
+              </span>
+            ) : (
+              <span className="text-slate-500">No ratings yet</span>
+            )}
+            {myScore != null ? (
+              <span className="flex items-center gap-1 text-slate-400">
+                you <StarRating value={myScore} readOnly size="sm" />
+              </span>
             ) : null}
           </div>
+
+          {pickers.length ? (
+            <div className="text-xs text-emerald-300/80">
+              {[
+                myItemPick
+                  ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`
+                  : null,
+                ...others.map(
+                  (x) => `${x.display_name}${x.qty > 1 ? ` ×${x.qty}` : ''}`,
+                ),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-2.5">
           {myItemPick ? (
-            <div className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
+            <div className="flex items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
               <button
                 aria-label="Fewer"
                 disabled={busyItem === it.id}
@@ -266,53 +334,27 @@ export default function WeekMenu({ menuId }) {
             <button
               disabled={busyItem === it.id}
               onClick={() => togglePick(it.id)}
-              className="shrink-0 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-60"
+              className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-60"
             >
               Pick
             </button>
           )}
-        </div>
-
-        {badges.length ? (
-          <div className="flex flex-wrap gap-1.5 pr-16">
-            {badges.map((b) => (
-              <Pill key={b.label} tone={b.tone}>
-                {b.label}
-              </Pill>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="flex items-center gap-3 pr-16 text-xs">
-          {st ? (
-            <span className="font-medium text-amber-400">
-              ★ {fmt1(st.avg_score)}
-              <span className="text-slate-500"> · {st.rating_count}</span>
-            </span>
-          ) : (
-            <span className="text-slate-500">No ratings yet</span>
-          )}
-          {myScore != null ? (
-            <span className="flex items-center gap-1 text-slate-400">
-              you <StarRating value={myScore} readOnly size="sm" />
-            </span>
+          {meal?.image_url ? (
+            <Link
+              to={`/meals/${meal.id}`}
+              aria-label={`${meal.name} photo`}
+              className="rounded-lg ring-1 ring-slate-700/70"
+            >
+              <img
+                src={meal.image_url}
+                alt=""
+                loading="lazy"
+                onError={(e) => (e.currentTarget.style.display = 'none')}
+                className="h-12 w-12 rounded-lg object-cover"
+              />
+            </Link>
           ) : null}
         </div>
-
-        {pickers.length ? (
-          <div className="pr-16 text-xs text-emerald-300/80">
-            {[
-              myItemPick
-                ? `You${myItemPick.qty > 1 ? ` ×${myItemPick.qty}` : ''}`
-                : null,
-              ...others.map(
-                (x) => `${x.display_name}${x.qty > 1 ? ` ×${x.qty}` : ''}`,
-              ),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
-        ) : null}
       </Card>
     )
   }
@@ -356,9 +398,53 @@ export default function WeekMenu({ menuId }) {
                 Picked · {pickedItems.length}{' '}
                 {pickedItems.length === 1 ? 'meal' : 'meals'}
               </SectionHeading>
-              <ul className="flex flex-col gap-3">
-                {pickedItems.map(renderItem)}
-              </ul>
+
+              <Card className="flex flex-col gap-3 border-emerald-500/30 bg-emerald-500/[0.04]">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ['Extra Protein', ep, () =>
+                      setOrderOpt({ order_extra_protein: !ep })],
+                    ['Low Carb', lc, () => setOrderOpt({ order_low_carb: !lc })],
+                  ].map(([label, on, toggle]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={toggle}
+                      className={cx(
+                        'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                        on
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-slate-800 text-slate-300',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Whole order, set once — {ep ? 'Extra Protein adds ' : 'adds '}
+                  {usd(EXTRA_PROTEIN_CENTS)}/meal when on.
+                </p>
+
+                <div className="flex items-end justify-between border-t border-slate-800 pt-3">
+                  <div className="text-xs text-slate-500">
+                    {order.mainCount} tier meal{order.mainCount === 1 ? '' : 's'}
+                    {pickedUnits - order.mainCount > 0
+                      ? ` + ${pickedUnits - order.mainCount} add-on`
+                      : ''}
+                    <br />@ {usd(order.perMainCents)}/meal
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-slate-100">
+                      {usd(order.subtotalCents)}
+                    </div>
+                    <div className="text-xs text-slate-500">before tax</div>
+                  </div>
+                </div>
+              </Card>
+
+              <ul className="flex flex-col gap-3">{pickedItems.map(renderItem)}</ul>
             </section>
           ) : null}
 
@@ -367,9 +453,7 @@ export default function WeekMenu({ menuId }) {
               {pickedItems.length > 0 ? (
                 <SectionHeading>Not picked</SectionHeading>
               ) : null}
-              <ul className="flex flex-col gap-3">
-                {openItems.map(renderItem)}
-              </ul>
+              <ul className="flex flex-col gap-3">{openItems.map(renderItem)}</ul>
             </section>
           ) : null}
         </>

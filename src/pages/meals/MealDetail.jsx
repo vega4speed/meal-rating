@@ -152,6 +152,7 @@ export default function MealDetail() {
           src={meal.image_url}
           alt={meal.name}
           loading="lazy"
+          onError={(e) => (e.currentTarget.style.display = 'none')}
           className="aspect-[4/3] w-full rounded-2xl object-cover"
         />
       ) : null}

@@ -29,6 +29,7 @@ export default function MealList() {
   const [hh, setHh] = useState({})
   const [mine, setMine] = useState({})
   const [picked, setPicked] = useState(new Set())
+  const [brokenImg, setBrokenImg] = useState(() => new Set())
   const [loading, setLoading] = useState(true)
   const debounce = useRef(null)
 
@@ -205,11 +206,14 @@ export default function MealList() {
                   to={`/meals/${m.id}`}
                   className="flex items-center gap-3 py-3"
                 >
-                  {m.image_url ? (
+                  {m.image_url && !brokenImg.has(m.id) ? (
                     <img
                       src={m.image_url}
                       alt=""
                       loading="lazy"
+                      onError={() =>
+                        setBrokenImg((s) => new Set(s).add(m.id))
+                      }
                       className="h-11 w-11 shrink-0 rounded-lg object-cover"
                     />
                   ) : (
