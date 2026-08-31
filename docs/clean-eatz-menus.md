@@ -34,6 +34,22 @@ Blueberry Waffle & Sausage Breakfast Sammiez, Chicken & Waffle Breakfast Sammiez
 Sausage Egg & Cheese Breakfast Sammiez, Dark Chocolate Peanut Butter Buckeyes
 (per-piece macros), Energy Bites (per-piece macros)
 
+## 2026 menu-history backfill (2026-08-31)
+
+Clean Eatz keeps every week's **macros-matrix PDF** live on its CDN
+(`assets.cleaneatz.com/macros-matrix/master-template-macros-matrix-2026.xlsx-<M>_<D>.pdf`).
+Scraped and parsed **22 weekly menus** (Mar–Sep 2026) client-side with pdf.js;
+after dedup/typo-fix/tag-inference, imported **167 meals** (catalog 34 → 172) with
+Standard + variation macros. No photos — only the current week publishes those.
+
+Two new columns on `meals.meals`:
+- `menu_appearances int` — distinct weekly menus the meal has been on
+- `menu_last_seen date` — most recent such week (2026 order-by-Sunday date)
+
+Future weekly imports should bump these. Meals list has filters: **2+ menus**
+toggle and a **Seen: last 30/60/90 days** select. The one-shot importer RPC
+(`bulk_import_menu_history`, token-gated SECURITY DEFINER) was dropped right after use.
+
 ## Freezer-label meals (migration `meals_seed_cleaneatz_freezer_new`)
 
 Six meals seen on real container labels, not on either weekly matrix. Seeded with an

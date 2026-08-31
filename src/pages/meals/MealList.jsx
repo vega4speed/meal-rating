@@ -23,6 +23,8 @@ export default function MealList() {
   const [tag, setTag] = useState(null)
   const [sort, setSort] = useState('name')
   const [pickedNotRated, setPickedNotRated] = useState(false)
+  const [multiMenu, setMultiMenu] = useState(false)
+  const [seenDays, setSeenDays] = useState(0)
   const [meals, setMeals] = useState([])
   const [hh, setHh] = useState({})
   const [mine, setMine] = useState({})
@@ -36,8 +38,10 @@ export default function MealList() {
     debounce.current = setTimeout(async () => {
       let query = supabase
         .from('meals')
-        .select('id, name, tags, image_url, providers(name)')
-        .limit(300)
+        .select(
+          'id, name, tags, image_url, menu_appearances, menu_last_seen, providers(name)',
+        )
+        .limit(400)
       const term = normalizeMealName(q)
       if (term) query = query.ilike('normalized_name', `%${term}%`)
       if (tag) query = query.contains('tags', [tag])
@@ -88,6 +92,14 @@ export default function MealList() {
     let rows = [...meals]
     if (pickedNotRated)
       rows = rows.filter((m) => picked.has(m.id) && mine[m.id] == null)
+    if (multiMenu) rows = rows.filter((m) => (m.menu_appearances ?? 0) >= 2)
+    if (seenDays) {
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - seenDays)
+      rows = rows.filter(
+        (m) => m.menu_last_seen && new Date(m.menu_last_seen) >= cutoff,
+      )
+    }
     if (sort === 'household')
       rows.sort(
         (a, b) => (hh[b.id]?.avg_score ?? -1) - (hh[a.id]?.avg_score ?? -1),
@@ -102,7 +114,7 @@ export default function MealList() {
       )
     else rows.sort((a, b) => a.name.localeCompare(b.name))
     return rows
-  }, [meals, sort, hh, mine, picked, pickedNotRated])
+  }, [meals, sort, hh, mine, picked, pickedNotRated, multiMenu, seenDays])
 
   return (
     <div className="flex flex-col gap-4">
@@ -119,7 +131,7 @@ export default function MealList() {
         placeholder="Search meals"
       />
 
-      <div className="flex items-center justify-between gap-3 text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
         <label className="flex items-center gap-1.5 text-slate-500">
           Sort
           <select
@@ -135,19 +147,40 @@ export default function MealList() {
             ))}
           </select>
         </label>
-        <button
-          type="button"
-          aria-pressed={pickedNotRated}
-          onClick={() => setPickedNotRated((v) => !v)}
-          className={[
-            'rounded-full px-2.5 py-1 font-medium transition-colors',
-            pickedNotRated
-              ? 'bg-emerald-500 text-slate-950'
-              : 'bg-slate-800 text-slate-400',
-          ].join(' ')}
-        >
-          Picked, unrated
-        </button>
+        <label className="flex items-center gap-1.5 text-slate-500">
+          Seen
+          <select
+            value={seenDays}
+            onChange={(e) => setSeenDays(Number(e.target.value))}
+            aria-label="Seen on a menu within"
+            className="rounded-md border border-slate-700 bg-slate-900 py-1 pl-2 pr-6 text-xs text-slate-200 outline-none focus:border-emerald-500"
+          >
+            <option value={0}>any time</option>
+            <option value={30}>last 30 days</option>
+            <option value={60}>last 60 days</option>
+            <option value={90}>last 90 days</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-xs">
+        {[
+          ['2+ menus', multiMenu, () => setMultiMenu((v) => !v)],
+          ['Picked, unrated', pickedNotRated, () => setPickedNotRated((v) => !v)],
+        ].map(([label, on, toggle]) => (
+          <button
+            key={label}
+            type="button"
+            aria-pressed={on}
+            onClick={toggle}
+            className={[
+              'rounded-full px-2.5 py-1 font-medium transition-colors',
+              on ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400',
+            ].join(' ')}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <TagChips
@@ -184,11 +217,16 @@ export default function MealList() {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-slate-100">{m.name}</div>
-                    {m.tags?.length ? (
-                      <div className="mt-0.5 truncate text-xs text-slate-500">
-                        {m.tags.join(' · ')}
-                      </div>
-                    ) : null}
+                    <div className="mt-0.5 truncate text-xs text-slate-500">
+                      {[
+                        m.tags?.length ? m.tags.join(' · ') : null,
+                        m.menu_appearances >= 2
+                          ? `${m.menu_appearances} menus`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join('  ·  ')}
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3 text-xs">
                     {mineAvg != null ? (
