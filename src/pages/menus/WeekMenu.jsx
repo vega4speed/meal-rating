@@ -33,6 +33,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   const [loading, setLoading] = useState(true)
   const [busyItem, setBusyItem] = useState(null)
   const [showOthers, setShowOthers] = useState(false)
+  const [editingPicks, setEditingPicks] = useState(false)
 
   const load = useCallback(async () => {
     const menuRes = await supabase
@@ -179,6 +180,12 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   async function setOrderOpt(patch) {
     setMenu((cur) => ({ ...cur, ...patch }))
     await supabase.from('weekly_menus').update(patch).eq('id', menuId)
+  }
+
+  function toggleEditPicks() {
+    const next = !editingPicks
+    setEditingPicks(next)
+    if (next) setShowOthers(true) // reveal the full menu to mark from
   }
 
   async function rateMeal(it, score) {
@@ -343,20 +350,22 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
                 onRate={(n) => rateMeal(it, n)}
                 size="md"
               />
-              <button
-                type="button"
-                disabled={busyItem === it.id}
-                aria-pressed={!!myItemPick}
-                onClick={() => togglePick(it.id)}
-                className={cx(
-                  'rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
-                  myItemPick
-                    ? 'bg-emerald-500/20 text-emerald-300'
-                    : 'bg-slate-800 text-slate-400',
-                )}
-              >
-                {myItemPick ? '✓ I had this' : 'I had this'}
-              </button>
+              {editingPicks ? (
+                <button
+                  type="button"
+                  disabled={busyItem === it.id}
+                  aria-pressed={!!myItemPick}
+                  onClick={() => togglePick(it.id)}
+                  className={cx(
+                    'rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+                    myItemPick
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : 'bg-slate-800 text-slate-400',
+                  )}
+                >
+                  {myItemPick ? '✓ I had this' : 'I had this'}
+                </button>
+              ) : null}
             </>
           ) : myItemPick ? (
             <div className="flex items-center gap-1 rounded-xl bg-emerald-500 text-slate-950">
@@ -440,21 +449,32 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
         </p>
       ) : rating ? (
         <div className="flex flex-col gap-4">
-          {pickedItems.length > 0 ? (
-            <section className="flex flex-col gap-2">
-              <SectionHeading>
-                Your picks · {pickedItems.length}
-              </SectionHeading>
+          <section className="flex flex-col gap-2">
+            <SectionHeading
+              action={
+                <button
+                  type="button"
+                  onClick={toggleEditPicks}
+                  className="text-xs font-medium text-emerald-400 hover:text-emerald-300"
+                >
+                  {editingPicks ? 'Done' : 'Edit picks'}
+                </button>
+              }
+            >
+              Your picks{pickedItems.length ? ` · ${pickedItems.length}` : ''}
+            </SectionHeading>
+            {pickedItems.length > 0 ? (
               <ul className="flex flex-col gap-3">
                 {pickedItems.map(renderItem)}
               </ul>
-            </section>
-          ) : (
-            <p className="text-sm text-slate-500">
-              No picks were logged for this week — expand the menu below to rate
-              what you ate.
-            </p>
-          )}
+            ) : (
+              <p className="text-sm text-slate-500">
+                {editingPicks
+                  ? 'Tap “I had this” on the meals you got.'
+                  : 'Nothing logged — tap Edit picks, or just rate what you ate.'}
+              </p>
+            )}
+          </section>
 
           {openItems.length > 0 ? (
             <section className="flex flex-col gap-2">
