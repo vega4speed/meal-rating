@@ -133,6 +133,15 @@ function parseMatrix(lines) {
 
 // ---------- run ----------
 const browser = await chromium.launch()
+
+// Soft-exit (0, not a CI failure) when the menu just isn't there yet — e.g. a
+// run that fires while Clean Eatz is mid-swap on a Tuesday morning.
+async function notReady(msg) {
+  console.log(`Menu not ready — ${msg}. Exiting cleanly.`)
+  await browser.close()
+  process.exit(0)
+}
+
 try {
   const page = await browser.newPage()
   await page.goto(MENU_URL, { waitUntil: 'domcontentloaded' })
@@ -140,7 +149,9 @@ try {
   await page.selectOption('select[name="location"]', { label: CAFE.state })
   await page.waitForTimeout(1500)
   await page.selectOption('select[name="cafe"]', { label: CAFE.cafe })
-  await page.waitForSelector('img[src*="meal-photos"]', { timeout: 25000 })
+  await page
+    .waitForSelector('img[src*="meal-photos"]', { timeout: 25000 })
+    .catch(() => notReady('no meal photos on the page'))
 
   // Scroll through the page so every lazy-loaded meal photo (incl. add-ons) mounts.
   for (let y = 0; y < 12; y++) {
@@ -233,7 +244,7 @@ try {
     return score >= 0.6 ? best : null
   }
 
-  if (!pdfUrl) throw new Error('could not find This Week macros-matrix link')
+  if (!pdfUrl) await notReady('no "This Week" macros-matrix link')
   console.log('cafe:', nearest)
   console.log('matrix:', pdfUrl)
 
