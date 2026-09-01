@@ -278,9 +278,14 @@ try {
   console.log('cafe:', nearest)
   console.log('matrix:', pdfUrl)
 
-  const mDate = pdfUrl.match(/matrix-(\d{4})\.xlsx-(\d{1,2})_(\d{1,2})\.pdf/)
-  if (!mDate) throw new Error(`unexpected matrix filename: ${pdfUrl}`)
-  const pdfWeekOf = `${mDate[1]}-${mDate[2].padStart(2, '0')}-${mDate[3].padStart(2, '0')}`
+  // Clean Eatz's filenames vary: `…-2026.xlsx-8_31.pdf`, `…-2026.xlsx-9_7.pdf`
+  // (1-digit day), sometimes with a re-upload suffix `…-2026.xlsx-9_7-(2).pdf`.
+  const mDate = pdfUrl.match(/-(\d{4})\.xlsx-(\d{1,2})_(\d{1,2})\b/)
+  const pdfWeekOf = mDate
+    ? `${mDate[1]}-${mDate[2].padStart(2, '0')}-${mDate[3].padStart(2, '0')}`
+    : nextWeekMonday()
+  if (!mDate)
+    console.warn(`odd matrix filename ${pdfUrl} — assuming week_of ${pdfWeekOf}`)
 
   const pdfBuf = new Uint8Array(await (await fetch(pdfUrl)).arrayBuffer())
   const parsed = parseMatrix(await pdfLines(pdfBuf))
