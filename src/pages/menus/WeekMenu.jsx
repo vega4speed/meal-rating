@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/auth.jsx'
@@ -11,6 +11,46 @@ import StarRating from '../../components/StarRating.jsx'
 
 const fmt1 = (x) => (x == null ? null : Number(x).toFixed(1))
 const cx = (...xs) => xs.filter(Boolean).join(' ')
+
+const isAddon = (meal) => (meal?.tags ?? []).includes('add-on')
+
+function ListGlyph(props) {
+  return (
+    <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden {...props}>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <path d="M3 4.5h12M3 9h12M3 13.5h12" />
+      </g>
+    </svg>
+  )
+}
+
+function CarouselGlyph(props) {
+  return (
+    <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden {...props}>
+      <rect
+        x="5"
+        y="3"
+        width="8"
+        height="12"
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M2.5 5v8M15.5 5v8"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
 
 // The variation label an order-level Extra Protein / Low Carb choice implies.
 function targetLabel(ep, lc) {
@@ -34,6 +74,9 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   const [busyItem, setBusyItem] = useState(null)
   const [showOthers, setShowOthers] = useState(false)
   const [editingPicks, setEditingPicks] = useState(false)
+  const [view, setView] = useState('list') // order mode: 'list' | 'carousel'
+  const [carIndex, setCarIndex] = useState(0)
+  const stripRef = useRef(null)
 
   const load = useCallback(async () => {
     const menuRes = await supabase
@@ -53,7 +96,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
     const itemRes = await supabase
       .from('weekly_menu_items')
       .select(
-        'id, position, variation_id, meal_variations(id, label, calories, fat_g, protein_g, carbs_g, meal_id, meals(id, name, tags, image_url, menu_appearances, price_cents))',
+        'id, position, variation_id, meal_variations(id, label, calories, fat_g, protein_g, carbs_g, meal_id, meals(id, name, description, tags, image_url, menu_appearances, price_cents))',
       )
       .eq('menu_id', menuId)
       .order('position', { ascending: true })
@@ -128,6 +171,18 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   useEffect(() => {
     load()
   }, [load])
+
+  // Jump the carousel strip to the tapped meal when it opens.
+  useEffect(() => {
+    if (view !== 'carousel') return
+    const el = stripRef.current
+    if (!el) return
+    const id = requestAnimationFrame(() => {
+      el.scrollLeft = carIndex * el.clientWidth
+    })
+    return () => cancelAnimationFrame(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view])
 
   function myPick(itemId) {
     return (picks[itemId] ?? []).find((x) => x.user_id === user.id) ?? null
@@ -243,6 +298,19 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
   const pickedItems = ranked.filter((it) => totalQty(it.id) > 0)
   const openItems = ranked.filter((it) => totalQty(it.id) === 0)
 
+  // Carousel browses the main meals (everything that isn't an add-on), in menu
+  // order regardless of the list's rating-rank sort.
+  const carouselItems = [...items]
+    .filter((it) => !isAddon(it.meal_variations?.meals))
+    .sort((a, b) => a.position - b.position)
+
+  function openCarousel(itemId) {
+    const i = carouselItems.findIndex((c) => c.id === itemId)
+    if (i < 0) return
+    setCarIndex(i)
+    setView('carousel')
+  }
+
   const order = orderTotalCents(
     pickedItems.map((it) => ({
       price_cents: it.meal_variations?.meals?.price_cents ?? null,
@@ -268,6 +336,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
     const myItemPick = pickers.find((x) => x.user_id === user.id) ?? null
     const others = pickers.filter((x) => x.user_id !== user.id)
     const total = totalQty(it.id)
+    const detailTap = !rating && !isAddon(meal) // opens the carousel
 
     return (
       <Card
@@ -285,12 +354,22 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
                 {total}
               </span>
             ) : null}
-            <Link
-              to={`/meals/${meal?.id}`}
-              className="truncate font-medium text-slate-100"
-            >
-              {meal?.name}
-            </Link>
+            {detailTap ? (
+              <button
+                type="button"
+                onClick={() => openCarousel(it.id)}
+                className="truncate text-left font-medium text-slate-100"
+              >
+                {meal?.name}
+              </button>
+            ) : (
+              <Link
+                to={`/meals/${meal?.id}`}
+                className="truncate font-medium text-slate-100"
+              >
+                {meal?.name}
+              </Link>
+            )}
           </div>
 
           {v?.label && v.label !== 'Standard' ? (
@@ -399,24 +478,190 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
             </button>
           )}
           {meal?.image_url ? (
-            <Link
-              to={`/meals/${meal.id}`}
-              aria-label={`${meal.name} photo`}
-              className="rounded-lg ring-1 ring-slate-700/70"
-            >
-              <img
-                src={meal.image_url}
-                alt=""
-                loading="lazy"
-                onError={(e) => (e.currentTarget.style.display = 'none')}
-                className="h-12 w-12 rounded-lg object-cover"
-              />
-            </Link>
+            detailTap ? (
+              <button
+                type="button"
+                onClick={() => openCarousel(it.id)}
+                aria-label={`${meal.name} — details`}
+                className="rounded-lg ring-1 ring-slate-700/70"
+              >
+                <img
+                  src={meal.image_url}
+                  alt=""
+                  loading="lazy"
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                  className="h-12 w-12 rounded-lg object-cover"
+                />
+              </button>
+            ) : (
+              <Link
+                to={`/meals/${meal.id}`}
+                aria-label={`${meal.name} photo`}
+                className="rounded-lg ring-1 ring-slate-700/70"
+              >
+                <img
+                  src={meal.image_url}
+                  alt=""
+                  loading="lazy"
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                  className="h-12 w-12 rounded-lg object-cover"
+                />
+              </Link>
+            )
           ) : null}
         </div>
       </Card>
     )
   }
+
+  function renderCarousel() {
+    const n = carouselItems.length
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setView('list')}
+          aria-label="Back to list"
+          className="absolute right-1 top-1 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/80 text-lg text-slate-300 backdrop-blur"
+        >
+          ✕
+        </button>
+
+        <div
+          ref={stripRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            if (el.clientWidth)
+              setCarIndex(Math.round(el.scrollLeft / el.clientWidth))
+          }}
+          className="flex snap-x snap-mandatory overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {carouselItems.map((it) => {
+            const meal = it.meal_variations?.meals
+            const v = effectiveVar(it)
+            const st = stats[it.variation_id]
+            const myScore = mine[it.variation_id] ?? null
+            const badges = mealBadges({
+              householdAvg: st?.avg_score ?? null,
+              ratingCount: st?.rating_count ?? 0,
+              myScore,
+              lastHadWeek: lastHad[meal?.id] ?? null,
+              menuAppearances: meal?.menu_appearances ?? null,
+            })
+            const mp = myPick(it.id)
+            const qty = totalQty(it.id)
+            return (
+              <div key={it.id} className="w-full shrink-0 snap-center pr-0.5">
+                <div className="flex flex-col gap-3">
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-800">
+                    {meal?.image_url ? (
+                      <img
+                        src={meal.image_url}
+                        alt={meal.name}
+                        onError={(e) =>
+                          (e.currentTarget.style.display = 'none')
+                        }
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl">
+                        🍽️
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-100">
+                      {meal?.name}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {v?.label && v.label !== 'Standard' ? `${v.label} · ` : ''}
+                      {macroLine(v) ?? 'Macros not listed'}
+                    </p>
+                  </div>
+
+                  {badges.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {badges.map((b) => (
+                        <Pill key={b.label} tone={b.tone}>
+                          {b.label}
+                        </Pill>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-3 text-xs">
+                    {st ? (
+                      <span className="font-medium text-amber-400">
+                        ★ {fmt1(st.avg_score)}
+                        <span className="text-slate-500">
+                          {' '}
+                          · {st.rating_count}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">
+                        No household ratings yet
+                      </span>
+                    )}
+                    {myScore != null ? (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        you <StarRating value={myScore} readOnly size="sm" />
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {meal?.description ? (
+                    <p className="text-sm leading-relaxed text-slate-300">
+                      {meal.description}
+                    </p>
+                  ) : null}
+
+                  {mp ? (
+                    <div className="flex items-center justify-between rounded-xl bg-emerald-500 text-slate-950">
+                      <button
+                        aria-label="Fewer"
+                        disabled={busyItem === it.id}
+                        onClick={() => changeQty(it.id, -1)}
+                        className="flex h-12 w-14 items-center justify-center text-2xl font-bold disabled:opacity-50"
+                      >
+                        −
+                      </button>
+                      <span className="text-base font-bold">{qty} picked</span>
+                      <button
+                        aria-label="More"
+                        disabled={busyItem === it.id || mp.qty >= 20}
+                        onClick={() => changeQty(it.id, 1)}
+                        className="flex h-12 w-14 items-center justify-center text-2xl font-bold disabled:opacity-50"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busyItem === it.id}
+                      onClick={() => togglePick(it.id)}
+                      className="rounded-xl bg-slate-800 py-3 text-base font-semibold text-slate-100 transition-colors hover:bg-slate-700 disabled:opacity-60"
+                    >
+                      Pick this
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="mt-2 text-center text-xs text-slate-500">
+          {Math.min(carIndex + 1, n)} / {n} · swipe for more
+        </p>
+      </div>
+    )
+  }
+
+  const showViewToggle =
+    !rating && ranked.length > 0 && carouselItems.length > 0
 
   return (
     <div className="flex flex-col gap-4">
@@ -429,12 +674,38 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
             {rating ? 'Rate what you’re eating' : 'Pick meals · order by Sunday'}
           </p>
         </div>
-        <Link
-          to={`/menus/${menu.id}/edit`}
-          className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100"
-        >
-          Edit
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          {showViewToggle ? (
+            <div className="flex rounded-lg bg-slate-800 p-0.5">
+              {[
+                ['list', 'List view', ListGlyph],
+                ['carousel', 'Carousel view', CarouselGlyph],
+              ].map(([key, label, Glyph]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-label={label}
+                  aria-pressed={view === key}
+                  onClick={() => setView(key)}
+                  className={cx(
+                    'flex h-7 w-8 items-center justify-center rounded-md transition-colors',
+                    view === key
+                      ? 'bg-slate-700 text-slate-100'
+                      : 'text-slate-500',
+                  )}
+                >
+                  <Glyph />
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <Link
+            to={`/menus/${menu.id}/edit`}
+            className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100"
+          >
+            Edit
+          </Link>
+        </div>
       </div>
 
       {menu.status === 'draft' ? (
@@ -447,6 +718,8 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
         <p className="text-sm text-slate-500">
           No meals on this menu yet. Tap Edit to add some.
         </p>
+      ) : !rating && view === 'carousel' ? (
+        renderCarousel()
       ) : rating ? (
         <div className="flex flex-col gap-4">
           <section className="flex flex-col gap-2">
