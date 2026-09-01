@@ -2,13 +2,17 @@ name: Weekly menu import
 
 on:
   schedule:
-    # The new Clean Eatz menu goes live Tuesday 8am US Eastern. Run just after,
-    # with a fallback an hour later. Cron is UTC with no DST:
-    #   12:01 UTC = 8:01 EDT (7:01 EST);  13:01 UTC = 9:01 EDT (8:01 EST).
-    # In EST (~Nov–Mar) both shift an hour earlier; the 13:01 run still lands
-    # right at the 8am EST drop. Add a '1 14 * * 2' slot if winter misses.
+    # The new Clean Eatz menu goes live Tuesday 8:00am US Eastern (their local
+    # clock, which follows DST). GitHub cron is UTC and does NOT follow DST, so a
+    # fixed UTC time drifts an hour twice a year. These three cover both seasons:
+    #   12:01 UTC = 8:01 EDT / 7:01 EST   (on-time in summer)
+    #   13:01 UTC = 9:01 EDT / 8:01 EST   (fallback summer, on-time winter)
+    #   14:01 UTC = 10:01 EDT / 9:01 EST  (fallback winter)
+    # Whichever run fires before the menu is live just soft-exits; the import is
+    # idempotent, so the extra run each week costs nothing.
     - cron: '1 12 * * 2'
     - cron: '1 13 * * 2'
+    - cron: '1 14 * * 2'
   workflow_dispatch:
   # Editing the importer runs it once so changes get tested.
   push:
