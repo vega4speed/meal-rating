@@ -484,6 +484,9 @@ try {
     process.exit(1)
   }
   console.log('imported:', body)
+} catch (err) {
+  console.error('IMPORT FAILED:', err?.stack || String(err))
+  process.exitCode = 1
 } finally {
   await browser.close()
 }
