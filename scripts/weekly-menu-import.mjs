@@ -233,14 +233,18 @@ try {
           (l) =>
             !/^\$/.test(l) &&
             !/each$/i.test(l) &&
-            !/CALORIES:|^CALS?\b|\bFAT\b.*\bPROT/i.test(l) &&
+            !/^(CALORIES|CALS|CARBS|PROTEIN|FAT)\b/i.test(l) &&
+            !/(CALORIES|CALS|CARBS|PROTEIN|FAT)\s*:?\s*\d+\s*g?\b/i.test(l) &&
             !/^(QUANTITY|FLAVOR|HIGH PROTEIN)$/i.test(l) &&
             !/^REMINDER:/i.test(l) &&
             l.toUpperCase() !== name.toUpperCase() &&
             !/^(PREMIUM|SALAD):/i.test(l),
         )
         .join(' ')
-        .replace(/\s*CALS?\s*\d.*$/i, '')
+        .replace(
+          /\s*(CALORIES|CALS|CARBS|PROTEIN|FAT)\s*:?\s*\d.*$/i,
+          '',
+        )
         .trim()
       cards.push({
         name,
