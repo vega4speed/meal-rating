@@ -43,7 +43,13 @@ function jaccard(a, b) {
 // lowercase-hyphen slug (premium / salad / add-on / bundle).
 const isSlug = (s) => /^[a-z0-9][a-z0-9-]*$/.test(s || '')
 const titleCase = (s) =>
-  s.toLowerCase().replace(/\b([a-z])/g, (_, c) => c.toUpperCase())
+  s
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (_, c) => c.toUpperCase())
+    .replace(/\bBbq\b/g, 'BBQ')
+    .replace(/\bPb&j\b/gi, 'PB&J')
+// Clean Eatz's matrix PDF is inconsistently ALL-CAPS some weeks; normalise.
+const displayName = (s) => (/[a-z]/.test(s) ? s : titleCase(s))
 
 // Monday (UTC) of *next* week — the week_of a menu that goes live this Tuesday.
 function nextWeekMonday() {
@@ -414,7 +420,7 @@ try {
         const { std, vars } =
           matrixByNorm[norm(p.name)] ?? { std: p.std, vars: {} }
         return {
-          name: p.name,
+          name: displayName(p.name),
           tags: inferTags(p.name, p.prefixTag),
           description: stripHeading(card?.description) ?? p.description ?? null,
           image_url: card?.photo ?? null,
