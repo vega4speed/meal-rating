@@ -692,8 +692,9 @@ scrolling.
       live. Fixes "a deploy never reaches the installed / long-open app."
 - [ ] **Keep-alive:** the weekly menu-import Action (below) doubles as the keep-alive
 - [x] **Weekly menu auto-import** — `.github/workflows/weekly-menu.yml` runs Tuesday
-      mornings (`0 8` and `0 11` UTC → ~3am / 6am Central): Playwright scrapes the
-      live Clean Eatz menu for the Murfreesboro cafe and parses the "This Week"
+      at `1 12` and `1 13` UTC (8:01 & 9:01 US Eastern in EDT — the menu goes live
+      8am Eastern): Playwright scrapes the live Clean Eatz menu for the Murfreesboro
+      cafe and parses the "This Week"
       macros-matrix PDF, then POSTs to the token-gated `meals.import_weekly_menu`
       RPC. Idempotent — re-runs don't double-count `menu_appearances`. Needs repo
       secret `CE_IMPORT_TOKEN` = `ce-weekly-import-2026`. Clean Eatz doesn't publish
