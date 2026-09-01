@@ -746,6 +746,12 @@ check unchanged). `src/lib/week.js` → `menuWeeks()` returns `{ thisWeek, nextW
 (nextWeek = thisWeek + 7). The "This Week" screen is a two-segment control:
 - **Next week** (default) → `nextWeek`, `WeekMenu mode="order"` — picks, EP/LC,
   before-tax total. Falls back to the provider snapshot + "Use this menu".
+  An icon toggle in the header flips the item area between the **list** (default,
+  compact rows) and a **carousel** — a full-width scroll-snap strip of the main
+  meals (add-ons excluded), each with a large image, blurb, macros (respecting
+  the order's EP/LC), and a Pick/qty control. Tapping a main's name or thumbnail
+  jumps into the carousel on it; ✕ or the toggle returns. Picks made in either
+  view are the same `menu_selections` rows.
 - **This week** → `thisWeek`, `WeekMenu mode="rate"` — picked meals on top with an
   inline star per card (writes straight to `ratings`), the rest of the menu
   collapsed under a toggle. No pick/price UI. "Previous weeks →" link only here.
