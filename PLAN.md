@@ -701,6 +701,14 @@ scrolling.
       a Tuesday post time; the two runs are best-effort.
       - **Mains + variation macros** come from the matrix PDF; photos, blurbs, and
         prices from the live cards (token-set Jaccard ≥ 0.6 name match).
+      - **Stale-PDF fallback.** Clean Eatz flips the on-page menu (Tue 8am ET) hours
+        or days before publishing the matching matrix PDF. When the PDF's mains
+        don't match the page (`pdfIsStale`), the importer takes mains straight
+        from the page — name, photo, blurb, and the Standard macros the newer
+        cards carry inline (`CALORIES:/FAT:/CARBS:/PROTEIN:`) — and stamps
+        `week_of` = next week's Monday. A later run adds the Low-Carb / Extra-
+        Protein variations once the real PDF lands. A run that fires before the
+        menu is live at all soft-exits (0, not a CI failure).
       - **Add-ons are one meal per live flavor.** The matrix carries a *static*
         add-on block Clean Eatz never updates, so it's ignored; the live cards
         (`ADDON_CATS` in the script — PB&J / Empanada / Overnight Oatz / Breakfast

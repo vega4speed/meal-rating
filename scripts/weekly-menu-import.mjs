@@ -39,6 +39,20 @@ function jaccard(a, b) {
   return inter / (A.size + B.size - inter)
 }
 
+// A live meal-photo `alt` is either an ALL-CAPS display name (a main) or a
+// lowercase-hyphen slug (premium / salad / add-on / bundle).
+const isSlug = (s) => /^[a-z0-9][a-z0-9-]*$/.test(s || '')
+const titleCase = (s) =>
+  s.toLowerCase().replace(/\b([a-z])/g, (_, c) => c.toUpperCase())
+
+// Monday (UTC) of *next* week — the week_of a menu that goes live this Tuesday.
+function nextWeekMonday() {
+  const d = new Date()
+  const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7) + 7)
+  return x.toISOString().slice(0, 10)
+}
+
 // ---------- tag inference (mirrors the historical backfill) ----------
 const TAG_RULES = [
   [/\bbeef|brisket|steak|burger|bison|short rib|pot roast|ragu|salisbury|tri tip|meatball|cheeseburger|burnt end|shepherd\b/i, 'beef'],
@@ -193,6 +207,21 @@ try {
         .filter(Boolean)
       const priceM = text.match(/\$\s?(\d+)\.(\d{2})\s*(?:each|\/)/i)
       const price_cents = priceM ? +priceM[1] * 100 + +priceM[2] : null
+      // Newer main cards carry Standard macros inline:
+      //   CALORIES: 437 FAT: 13g   CARBS: 49g PROTEIN: 31g
+      const mc = (re) => {
+        const m = text.match(re)
+        return m ? +m[1] : null
+      }
+      const cal = mc(/CALORIES:\s*(\d+)/i)
+      const macros = cal
+        ? [
+            cal,
+            mc(/FAT:\s*(\d+)/i),
+            mc(/PROTEIN:\s*(\d+)/i),
+            mc(/CARBS:\s*(\d+)/i),
+          ]
+        : null
       const desc = lines
         .filter(
           (l) =>
@@ -211,6 +240,7 @@ try {
         name,
         photo: img.currentSrc || img.src,
         price_cents,
+        macros,
         description: desc || null,
         lines,
       })
@@ -250,50 +280,15 @@ try {
 
   const mDate = pdfUrl.match(/matrix-(\d{4})\.xlsx-(\d{1,2})_(\d{1,2})\.pdf/)
   if (!mDate) throw new Error(`unexpected matrix filename: ${pdfUrl}`)
-  const weekOf = `${mDate[1]}-${mDate[2].padStart(2, '0')}-${mDate[3].padStart(2, '0')}`
+  const pdfWeekOf = `${mDate[1]}-${mDate[2].padStart(2, '0')}-${mDate[3].padStart(2, '0')}`
 
   const pdfBuf = new Uint8Array(await (await fetch(pdfUrl)).arrayBuffer())
   const parsed = parseMatrix(await pdfLines(pdfBuf))
-  console.log(`week_of ${weekOf} — ${parsed.length} rows from matrix`)
-
-  // Every matrix row's macros, keyed by normalized name — used to enrich both
-  // mains and any add-on flavor the matrix happens to list.
-  const matrixByNorm = {}
-  for (const p of parsed) {
-    const vars = {}
-    for (const [label, mac] of Object.entries(p.vars))
-      if (mac.join() !== p.std.join()) vars[label] = mac
-    matrixByNorm[norm(p.name)] = { std: p.std, vars }
-  }
 
   // The matrix carries a *static* add-on block that Clean Eatz never updates;
-  // the live cards are authoritative for add-on identity, so drop those rows here.
+  // the live cards are authoritative for add-on identity, so drop those rows.
   const ADDON_RE = /\b(pb ?& ?j|empanada|sammiez|buckeye|energy bite|overnight oat)/i
-  const mains = parsed.filter((p) => !ADDON_RE.test(p.name))
 
-  const mainMeals = mains.map((p) => {
-    const card = matchCard(p.name)
-    const { std, vars } = matrixByNorm[norm(p.name)] ?? { std: p.std, vars: {} }
-    let blurb = card?.description ?? null
-    if (blurb) {
-      // strip a leading ALL-CAPS run (Clean Eatz renders the name as a heading)
-      blurb = blurb.replace(/^[A-Z0-9&'./:\- ]{4,}?(?=[A-Z][a-z])/, '').trim()
-      const residue = norm(blurb).replace(new RegExp(norm(p.name), 'g'), '').trim()
-      if (blurb.length < 25 || residue.length < 8) blurb = null
-    }
-    return {
-      name: p.name,
-      tags: inferTags(p.name, p.prefixTag),
-      description: blurb ?? p.description ?? null,
-      image_url: card?.photo ?? null,
-      price_cents: card?.price_cents ?? null,
-      std,
-      vars,
-    }
-  })
-
-  // ---------- add-ons: one meal per live flavor ----------
-  // keyed by the normalized image alt (a category slug on the live site)
   // keyed by normalized image alt; every add-on flavor carries the 'add-on' tag
   // (inferTags layers on beef/chicken/breakfast/etc. from the flavor name)
   const ADDON_CATS = {
@@ -335,6 +330,94 @@ try {
           )
         : []
     return { blurb: blurb || null, flavors }
+  }
+
+  // Every matrix row's macros, keyed by normalized name.
+  const matrixByNorm = {}
+  for (const p of parsed) {
+    const vars = {}
+    for (const [label, mac] of Object.entries(p.vars))
+      if (mac.join() !== p.std.join()) vars[label] = mac
+    matrixByNorm[norm(p.name)] = { std: p.std, vars }
+  }
+
+  // ---- is the PDF the current week's, or is it lagging the live page? ----
+  // Clean Eatz flips the on-page menu (Tue 8am ET) sometimes hours/days before
+  // publishing the matching macros-matrix PDF. When the PDF's mains don't line
+  // up with what's on the page, take names/photos/blurbs from the page now and
+  // let a later run fill in macros once the real PDF lands.
+  const liveMainNames = [
+    ...new Set(cards.map((c) => c.name).filter((n) => !isSlug(n))),
+  ]
+  const pdfMainNames = parsed
+    .filter((p) => !p.prefixTag && !ADDON_RE.test(p.name))
+    .map((p) => p.name)
+  const matchedLive = liveMainNames.filter((lm) =>
+    pdfMainNames.some((pm) => jaccard(lm, pm) >= 0.55),
+  ).length
+  const pdfIsStale =
+    liveMainNames.length >= 3 && matchedLive / liveMainNames.length < 0.5
+
+  const weekOf = pdfIsStale ? nextWeekMonday() : pdfWeekOf
+  console.log(
+    pdfIsStale
+      ? `matrix ${pdfWeekOf} is stale (${matchedLive}/${liveMainNames.length} mains match) — importing week_of ${weekOf} from the live page`
+      : `week_of ${weekOf} — ${parsed.length} rows from matrix`,
+  )
+
+  const stripHeading = (b) => {
+    if (!b) return null
+    const s = b.replace(/^[A-Z0-9&'./:\- ]{4,}?(?=[A-Z][a-z])/, '').trim()
+    return s.length >= 25 ? s : null
+  }
+
+  let mainMeals
+  if (pdfIsStale) {
+    mainMeals = cards
+      .filter((c) => {
+        if (!isSlug(c.name)) return true // ALL-CAPS main
+        if (/bundle/.test(c.name)) return false // meal-plan bundles, not meals
+        if (ADDON_CATS[norm(c.name)]) return false // handled below as add-ons
+        return /^premium-/.test(c.name) || /salad/.test(c.name)
+      })
+      .map((c) => {
+        const prefixTag = /^premium-/.test(c.name)
+          ? 'premium'
+          : /salad/.test(c.name)
+            ? 'salad'
+            : null
+        const name = isSlug(c.name)
+          ? titleCase(c.name.replace(/^premium-/, '').replace(/-/g, ' '))
+          : titleCase(c.name)
+        return {
+          name,
+          tags: inferTags(name, prefixTag),
+          description: stripHeading(c.description),
+          image_url: c.photo,
+          price_cents: c.price_cents,
+          std: c.macros ?? [], // Standard macros off the card, if present
+          vars: {}, // LC / EP variations come from the PDF on a later run
+        }
+      })
+    if (mainMeals.length < 3)
+      await notReady('live page has no recognisable main meals')
+  } else {
+    mainMeals = parsed
+      .filter((p) => !ADDON_RE.test(p.name))
+      .map((p) => {
+        const card = matchCard(p.name)
+        const { std, vars } =
+          matrixByNorm[norm(p.name)] ?? { std: p.std, vars: {} }
+        return {
+          name: p.name,
+          tags: inferTags(p.name, p.prefixTag),
+          description: stripHeading(card?.description) ?? p.description ?? null,
+          image_url: card?.photo ?? null,
+          price_cents: card?.price_cents ?? null,
+          std,
+          vars,
+        }
+      })
   }
 
   const addonMeals = []
