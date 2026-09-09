@@ -175,7 +175,9 @@ export default function MealDetail() {
       {meal.tags?.length ? (
         <div className="flex flex-wrap gap-1.5">
           {meal.tags.map((t) => (
-            <Pill key={t}>{t}</Pill>
+            <Pill key={t} tone={t === 'premium' ? 'gold' : 'slate'}>
+              {t}
+            </Pill>
           ))}
         </div>
       ) : null}

@@ -5,8 +5,11 @@ export function mealBadges({
   myScore,
   lastHadWeek,
   menuAppearances,
+  tags,
 }) {
   const out = []
+  if ((tags ?? []).includes('premium'))
+    out.push({ label: 'PREMIUM', tone: 'gold' })
   if (menuAppearances != null && menuAppearances <= 1)
     out.push({ label: 'NEW', tone: 'sky' })
   if (myScore === 5) out.push({ label: 'YOUR FAVORITE', tone: 'amber' })
@@ -52,4 +55,5 @@ export const BADGE_CLASSES = {
   emerald: 'bg-emerald-500/20 text-emerald-300',
   rose: 'bg-rose-500/20 text-rose-300',
   violet: 'bg-violet-500/20 text-violet-300',
+  gold: 'bg-amber-400/25 text-amber-200',
 }

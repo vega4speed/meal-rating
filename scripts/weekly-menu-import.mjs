@@ -265,9 +265,15 @@ try {
     return { cards, pdfUrl: tw?.href, nearest }
   })
 
+  // Live card alts for premiums/salads are prefixed slugs (`premium-steak-bowl`);
+  // the PDF names them bare ("Steak Bowl"). Strip the prefix before matching or
+  // the extra "premium" token drags the Jaccard score below threshold and the
+  // premium main imports with no photo, blurb, or price.
+  const bareCardName = (s) => (s || '').replace(/^(premium|salad)-/i, '')
+
   const cardByKey = {}
   for (const c of cards) {
-    const key = norm(c.name)
+    const key = norm(bareCardName(c.name))
     if (!cardByKey[key]) cardByKey[key] = c
   }
   function matchCard(name) {
@@ -275,7 +281,7 @@ try {
     let best = null
     let score = 0
     for (const c of cards) {
-      const s = jaccard(name, c.name)
+      const s = jaccard(name, bareCardName(c.name))
       if (s > score) {
         score = s
         best = c

@@ -331,6 +331,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
       myScore,
       lastHadWeek: lastHad[meal?.id] ?? null,
       menuAppearances: meal?.menu_appearances ?? null,
+      tags: meal?.tags ?? [],
     })
     const pickers = picks[it.id] ?? []
     const myItemPick = pickers.find((x) => x.user_id === user.id) ?? null

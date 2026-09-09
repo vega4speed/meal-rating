@@ -81,6 +81,7 @@ const PILL_TONES = {
   rose: 'bg-rose-500/15 text-rose-300',
   sky: 'bg-sky-500/15 text-sky-300',
   violet: 'bg-violet-500/15 text-violet-300',
+  gold: 'bg-amber-400/20 text-amber-200',
 }
 
 export function Pill({ tone = 'slate', className = '', children }) {
