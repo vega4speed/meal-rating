@@ -50,6 +50,23 @@ Future weekly imports should bump these. Meals list has filters: **2+ menus**
 toggle and a **Seen: last 30/60/90 days** select. The one-shot importer RPC
 (`bulk_import_menu_history`, token-gated SECURITY DEFINER) was dropped right after use.
 
+## Aug 3 / 10 / 17 gap backfill (2026-09-03)
+
+The original 22-week scrape was lossy — it missed whole weeks (2026-03-30, and the
+Aug 3 / 10 / 17 run, where Clean Eatz re-uploaded the matrix under a
+`…xlsx-8_17-(1).pdf` filename the scraper never tried) and undercounted meals on the
+weeks it did get. `scripts/backfill-aug-gap.mjs` re-walks **every Monday
+2026-03-23 → 08-31**, trying both the bare `M_D.pdf` and the `M_D-(1).pdf` re-upload,
+and POSTs each through `import_weekly_menu` (idempotent). Result: catalog **177 → 218
+meals**. The freezer-label seeds *Braised Beef Pot Roast*, *Southern Chicken Dinner*,
+*Buffalo Chicken Mac & Cheese* are now dated (week of 08-17) instead of
+`menu_last_seen NULL`.
+
+Still undated (not on any reachable 2026 menu — likely pre-03-23 or a purged week):
+Buffalo Chicken Dip Bowl, Green Chili Chicken Mac, Teriyaki Chicken Bro Meal. No
+"Aloha …" meal appears in any week Mar–Aug 2026; if it's in the freezer it predates
+our earliest reachable matrix (`3_16` and older now 403).
+
 ## Freezer-label meals (migration `meals_seed_cleaneatz_freezer_new`)
 
 Six meals seen on real container labels, not on either weekly matrix. Seeded with an
