@@ -548,6 +548,7 @@ export default function WeekMenu({ menuId, mode = 'order' }) {
               myScore,
               lastHadWeek: lastHad[meal?.id] ?? null,
               menuAppearances: meal?.menu_appearances ?? null,
+              tags: meal?.tags ?? [],
             })
             const mp = myPick(it.id)
             const qty = totalQty(it.id)
