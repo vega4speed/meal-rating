@@ -696,9 +696,11 @@ scrolling.
       8am Eastern): Playwright scrapes the live Clean Eatz menu for the Murfreesboro
       cafe and parses the "This Week"
       macros-matrix PDF, then POSTs to the token-gated `meals.import_weekly_menu`
-      RPC. Idempotent — re-runs don't double-count `menu_appearances`. Needs repo
-      secret `CE_IMPORT_TOKEN` = `ce-weekly-import-2026`. Clean Eatz doesn't publish
-      a Tuesday post time; the two runs are best-effort.
+      RPC, retrying up to 3 times with backoff on a `5xx` (a transient blip on the
+      shared, sometimes-cold-starting Supabase project shouldn't throw away a
+      successful scrape). Idempotent — re-runs don't double-count `menu_appearances`.
+      Needs repo secret `CE_IMPORT_TOKEN` = `ce-weekly-import-2026`. Clean Eatz
+      doesn't publish a Tuesday post time; the two runs are best-effort.
       - **Mains + variation macros** come from the matrix PDF; photos, blurbs, and
         prices from the live cards (token-set Jaccard ≥ 0.6 name match).
       - **Stale-PDF fallback.** Clean Eatz flips the on-page menu (Tue 8am ET) hours
