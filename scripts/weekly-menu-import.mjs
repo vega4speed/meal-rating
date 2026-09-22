@@ -486,20 +486,32 @@ try {
     process.exit(0)
   }
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/import_weekly_menu`, {
-    method: 'POST',
-    headers: {
-      apikey: ANON,
-      Authorization: `Bearer ${ANON}`,
-      'Content-Type': 'application/json',
-      'Content-Profile': 'meals',
-    },
-    body: JSON.stringify({
-      p_token: TOKEN,
-      p_payload: { week_of: weekOf, meals },
-    }),
-  })
-  const body = await res.text()
+  // The Clean Eatz scrape above is the expensive, non-idempotent-feeling part;
+  // a transient 5xx from a shared, sometimes-cold-starting Supabase project on
+  // this last step shouldn't throw that work away. Retry a few times before
+  // giving up — the RPC itself is idempotent per week_of.
+  const RETRY_DELAYS_MS = [2000, 5000, 10000]
+  let res, body
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/import_weekly_menu`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${ANON}`,
+        'Content-Type': 'application/json',
+        'Content-Profile': 'meals',
+      },
+      body: JSON.stringify({
+        p_token: TOKEN,
+        p_payload: { week_of: weekOf, meals },
+      }),
+    })
+    body = await res.text()
+    if (res.ok || res.status < 500 || attempt >= RETRY_DELAYS_MS.length) break
+    const delay = RETRY_DELAYS_MS[attempt]
+    console.error(`RPC ${res.status}: ${body} — retrying in ${delay}ms`)
+    await new Promise((r) => setTimeout(r, delay))
+  }
   if (!res.ok) {
     console.error(`RPC ${res.status}: ${body}`)
     process.exit(1)
